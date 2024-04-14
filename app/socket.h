@@ -8,19 +8,20 @@ unsigned short csum(unsigned short *buf, int nwords);
 
 // IP Header
 struct ipheader {
- unsigned char       ip_ihl:5, ip_v:4;
- unsigned char       ip_tos;
- unsigned short int  ip_len;
- unsigned short int  ip_ident;
- unsigned char       ip_flag;
- unsigned short int  ip_offset;
- unsigned char       ip_ttl;
- unsigned char       ip_protocol;
- unsigned short int  ip_chksum;
- unsigned int        ip_sourceip;
- unsigned int        ip_dst;
+ unsigned char       iph_ihl:5, iph_v:4;
+ unsigned char       iph_tos;
+ unsigned short int  iph_len;
+ unsigned short int  iph_ident;
+ unsigned char       iph_flag;
+ unsigned short int  iph_offset;
+ unsigned char       iph_ttl;
+ unsigned char       iph_protocol;
+ unsigned short int  iph_chksum;
+ unsigned int        iph_sourceip;
+ unsigned int        iph_dst;
 };
 
+// TCP Header
 struct tcpheader {
     unsigned short int th_sport;
     unsigned short int th_dport;

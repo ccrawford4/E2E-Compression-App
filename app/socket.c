@@ -3,6 +3,7 @@
 
 #define PCKT_LEN 8192
 #define BUF_SIZE 8193
+#define UDP_PROTO 17
 
 int init_socket(int type) {
     int sockfd;
@@ -80,6 +81,19 @@ void get_hostip(char* host) {
     }
 }
 
+void fill_ip_header(size_t struct_size, unsigned int ttl, unsigned int proto,
+                    unsigned long dst_addr, unsigned long host_addr, char* buffer) {
+    iph->iph_tos = 16;
+    ip->iph_len = sizeof(ipheader) + struct_size;
+    ip->iph_ttl = ttl;
+    ip->iph_protocol = proto;
+    ip->iph_sourceip = host_addr;
+    ip->iph_destip = dst_addr;
+
+    ip->iphh_chksum = csum((unsigned short *)buffer, sizeof(struct ipheader) + struct_size);
+
+}
+
 void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {
 
     struct sockaddr_in sin, din;
@@ -107,20 +121,11 @@ void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, s
     sin.sin_addr.s_addr = dst_addr;
     din.sin_addr.s_addr = host_addr;
 
-    ip->iph_ihl = 5;
-    ip->iph_tos = 16;
-    ip->iph_len = sizeof(struct ipheader) + sizeof(struct udpheader);
-    ip->iph_ident = htons(54321);
-    ip->iph_ttl = ttl;
-    ip->iph_protocol = 17; // UDP
-    ip->iph_sourceip = host_addr;
-    ip->iph_destip = dst_addr;
+    fill_ip_header(sizeof(udpheader), ttl, UDP_PROTO, dst_addr, host_addr, buffer);
 
     udp->udph_srcport = htons(udp_src_port);
+    udp->udph_destport = htons(udp_dst_port);
     udp->udph_len = htons(sizeof(struct udpheader));
-
-    // calculate the checksum for integrity
-    ip->iph_chksum = csum((unsigned short *)buffer,
-    sizeof(struct ipheader + sizeof(struct udpheader));
+    udp->udph_chksum = csum((unsigned short *)buffer, sizeof(struct ipheader) + sizeof(udpheader));
         
 }

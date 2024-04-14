@@ -1,7 +1,7 @@
 #include "main.h"
+
 #define PCKT_LEN 8192
 #define ERROR "ERROR"
-
 
 void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
                const char* server_ip, unsigned int ttl) {
@@ -15,7 +15,6 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
 
     fill_udp_header(&buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
                     udp_src_port, server_ip, ttl);
-
     // SEND PACKETS 
     // close fd
 
