@@ -1,10 +1,10 @@
-#include "main.h"
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
-
-
-unsigned short csum(unsigned short *buf, int nwords);
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
 
 // IP Header
 struct ipheader {
@@ -43,3 +43,12 @@ struct udpheader {
  unsigned short int  udph_chksum;
 };
 
+unsigned short csum(unsigned short *buf, int nwords);
+int init_socket(int type);
+void send_packets(int sockfd, char *buffer, struct ipheader *iph);
+void recv_packets(int sockfd);
+void fill_ip_header(size_t struct_size, unsigned int ttl, unsigned int proto,
+                    unsigned long dst_addr, unsigned long host_addr, char* buffer);
+void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp,
+                    struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd,
+                    unsigned int udp_dst_port, unsigned int udp_src_port, const char *server_ip, unsigned int ttl);

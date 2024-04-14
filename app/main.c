@@ -7,13 +7,13 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
                const char* server_ip, unsigned int ttl) {
    int sockfd = init_socket(IPPROTO_UDP);
 
-    char buffer[PCKT_LEN];
+    char* buffer = (char*)malloc(PCKT_LEN);
 
     struct ipheader *ip = (struct ipheader *) buffer;
     struct udpheader *udp = (struct udpheader *) (buffer + sizeof(struct ipheader));
     struct sockaddr_in sin, din;
 
-    fill_udp_header(&buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
+    fill_udp_header(buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
                     udp_src_port, server_ip, ttl);
     // SEND PACKETS 
     // close fd

@@ -1,4 +1,3 @@
-#include "main.h"
 #include "socket.h"
 
 #define PCKT_LEN 8192
@@ -12,7 +11,7 @@ int init_socket(int type) {
     }
     int one = 1;
     const int *val = &one;
-    if ((setsockopt(sockfd, IPPROTO_IP, IPHDRINCL, val, sizeof(one))) < 0) {
+    if ((setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one))) < 0) {
         handle_error(sockfd, "setsockopt()");
     }
     return sockfd;
@@ -33,6 +32,7 @@ void send_packets(int sockfd, char *buffer, struct ipheader *iph) {
     // do sin stuff
     struct sockaddr_in sin;
     sendto(sockfd, buffer, iph->ip_len, 0, (struct sockaddr *) sin, sizeof(sin));
+    // handle errors
 }
 
 void recv_packets(int sockfd) {
