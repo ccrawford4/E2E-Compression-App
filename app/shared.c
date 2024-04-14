@@ -1,4 +1,6 @@
 #include "main.h"
+#include "socket.h"
+
 #define MAX_KEY_LEN 100
 
 void print_time(struct timespec current_time) {

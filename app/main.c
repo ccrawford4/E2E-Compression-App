@@ -1,4 +1,7 @@
 #include "main.h"
+#include "socket.h"
+#include "shared.h"
+#include "json.h"
 
 #define PCKT_LEN 8192
 #define ERROR "ERROR"
@@ -45,7 +48,7 @@ int main(int argc, char **argv) {
     char* config_file = argv[1];
     
     const char* server_addr = get_value(config_file, "server_ip");
-    if (!stcmp(server_addr, "ERROR")) {
+    if (!strcmp(server_addr, ERROR)) {
         printf("ERROR! You must enter a server IP address in the %s file", argv[1]);
         return EXIT_FAILURE;
     }

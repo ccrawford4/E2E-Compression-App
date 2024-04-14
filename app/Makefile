@@ -1,5 +1,5 @@
 PROG = compdetect
-OBJS = main.o socket.o json.o
+OBJS = socket.o json.o shared.o main.o
 
 CFLAGS = -g -I../jansson-2.13/include
 LDFLAGS = -L../jansson-2.13/lib -ljansson

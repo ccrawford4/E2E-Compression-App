@@ -5,6 +5,9 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 // IP Header
 struct ipheader {
@@ -18,7 +21,7 @@ struct ipheader {
  unsigned char       iph_protocol;
  unsigned short int  iph_chksum;
  unsigned int        iph_sourceip;
- unsigned int        iph_dst;
+ unsigned int        iph_dstip;
 };
 
 // TCP Header
@@ -47,7 +50,7 @@ unsigned short csum(unsigned short *buf, int nwords);
 int init_socket(int type);
 void send_packets(int sockfd, char *buffer, struct ipheader *iph);
 void recv_packets(int sockfd);
-void fill_ip_header(size_t struct_size, unsigned int ttl, unsigned int proto,
+void fill_ip_header(struct ipheader *ip, size_t struct_size, unsigned int ttl, unsigned int proto,
                     unsigned long dst_addr, unsigned long host_addr, char* buffer);
 void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp,
                     struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd,

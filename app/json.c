@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+#include "shared.h"
 
 #define NUM_ITEMS 11
 #define ERROR "ERROR"
@@ -29,7 +31,6 @@ void handle_key_error(int ret_val, char* key, char* file_name) {
         exit(EXIT_FAILURE);
     }
 }
-
 
 // Return the default value if the value doesn't in the JSON
 const char* get_default(char* key) {
