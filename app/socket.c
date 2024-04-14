@@ -140,6 +140,9 @@ void fill_ip_header(struct ipheader *ip, size_t struct_size, unsigned int ttl, u
 
 }
 
+//void fill_header(char *buffer, struct ipheader *ip, struct udpheader
+
+
 void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {  
 
     sin->sin_family = AF_INET;

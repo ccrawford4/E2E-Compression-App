@@ -6,6 +6,12 @@
 #define PCKT_LEN 8192
 #define ERROR "ERROR"
 
+void send_tcp_packet(unsigned int port) {
+    // type will equal SYN or 
+    int sockfd = init_socket(IPPROTO_TCP);
+}
+
+
 void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
                const char* server_ip, unsigned int ttl) {
    int sockfd = init_socket(IPPROTO_UDP);
@@ -20,7 +26,6 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
                     udp_src_port, server_ip, ttl);
     // SEND PACKETS 
     // close fd
-
 }
 
 
@@ -75,5 +80,10 @@ int main(int argc, char **argv) {
     if (ttl == 0 && strcmp(ttl_str, "0")) {
         handle_key_error(ttl, "UDP_packet_TTL", config_file);
     }
+
+    struct ipheader *ip;
+    // TODO
+    
+
 
 }
