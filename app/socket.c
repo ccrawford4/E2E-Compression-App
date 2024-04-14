@@ -2,24 +2,17 @@
 #include "socket.h"
 
 #define PCKT_LEN 8192
-
-
-struct tcpheader {
-	unsigned short int th_sport;
-	unsigned short int th_dport;
-	unsigned int th_seq;
-	unsigned int th_ack;
-	unsigned char th_x2:4, th_off:4;
-	unsigned char th_flags; // should have the SYN flags
-	unsigned short int th_win;
-	unsigned short int th_sum;
-	unsigned short int th_urp;
-};
+#define BUF_SIZE 8193
 
 int init_socket(int type) {
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, type)) < 0) {
         perror("socket()");
+    }
+    int one = 1;
+    const int *val = &one;
+    if ((setsockopt(sockfd, IPPROTO_IP, IPHDRINCL, val, sizeof(one))) < 0) {
+        handle_error(sockfd, "setsockopt()");
     }
     return sockfd;
 }
@@ -35,6 +28,45 @@ unsigned short csum(unsigned short *buf, int nwords) {
      return (unsigned short) (~sum);
 }
 
-void send_stream() {
+void send_packets(int sockfd, char *buffer, struct ipheader *iph) {
+    // do sin stuff
+    struct sockaddr_in sin;
+    sendto(sockfd, buffer, iph->ip_len, 0, (struct sockaddr *) sin, sizeof(sin));
+}
+
+void recv_packets(int sockfd) {
+    char* buf = (char*)malloc(BUF_SIZE);
+    if (buf == NULL) {
+        handle_error(sockfd, "Memory Allocation Error");
+    }
+    // for (;;) {
+    ssize_t psize = recvfrom(sockfd, buf, BUF_SIZE, 0, NULL, NULL);
+    // ...
+    if (psize < 0) {
+        handle_error(sockfd, "recvfrom()");
+    }
+    // ...
+    struct ipheader *ip_head = (struct ipheader*)buf;
+    // exxtract ip_head_len using ip_head->ihl
+
+    struct tcpheader *tcp_head = (struct tcpheader*) (buf + ip_head_len);
+    // set pointer to beginning of data
+    // ...
     
+}
+
+void fill_tcp_header(struct tcpheader *tcph, unsigned int port) {
+    tcph->th_sport = htons(port);
+    tcph->th_flags = TH_SYN;
+}
+
+void fill_ip_header(struct ipheader *iph) {
+    // iph->ip_v -> done automatically
+    iph->ip_tos = 0;
+    iph->ip_dst.s_addr = sin.sin_addr.s_addr;
+
+    // ...
+    /* if no payload */
+    iph->ip_len = sizeof (struct ipheader) + sizeof(tcpheader);
+
 }

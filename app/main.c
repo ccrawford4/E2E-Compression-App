@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    send_stream();
+    int sockfd = init_socket();
+  //  send_stream();
 
 }
