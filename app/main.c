@@ -1,7 +1,7 @@
-#include "main.h"
-#include "socket.h"
-#include "shared.h"
-#include "json.h"
+#include "headers/main.h"
+#include "headers/socket.h"
+#include "headers/shared.h"
+#include "headers/json.h"
 
 #define PCKT_LEN 8192
 #define ERROR "ERROR"

@@ -1,6 +1,6 @@
-#include "main.h"
-#include "socket.h"
-#include "shared.h"
+#include "headers/main.h"
+#include "headers/socket.h"
+#include "headers/shared.h"
 
 #define PCKT_LEN 8192
 #define BUF_SIZE 8193

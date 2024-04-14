@@ -1,6 +1,6 @@
-#include "main.h"
-#include "json.h"
-#include "shared.h"
+#include "headers/main.h"
+#include "headers/json.h"
+#include "headers/shared.h"
 
 #define NUM_ITEMS 11
 #define ERROR "ERROR"

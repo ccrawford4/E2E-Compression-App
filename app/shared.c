@@ -1,5 +1,5 @@
-#include "main.h"
-#include "socket.h"
+#include "headers/main.h"
+#include "headers/socket.h"
 
 #define MAX_KEY_LEN 100
 
