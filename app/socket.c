@@ -55,23 +55,72 @@ void recv_packets(int sockfd) {
     
 }
 
-void fill_tcp_header(struct tcpheader *tcph, unsigned int port, int type) {
-    tcph->th_sport = htons(port);
-    tcph->th_flags = type;
+void get_hostip(char* host) {
+    struct ifaddrs *ifaddr, *ifa;
+    int family;
+    if (getifaddrs(&ifaddr) < 0) {
+        perror("getifaddrs()");
+        exit(EXIT_FAILURE);
+    }
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL) {
+             continue;
+        }
+        family = ifa->ifa_addr->sa_family;
+        if (family == AF_INET) {
+            int s = getnameinfo(ifa->ifa_addr,
+                sizeof(struct sockaddr_in),
+                *host, NI_MAXHOST,
+                NULL, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                printf("getnameinfo()");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 }
 
-void fill_header(struct ipheader *iph, unsigned int port, struct int type, char* buffer) {
-    // iph->ip_v -> done automatically
-    iph->ip_tos = 0;
-    iph->ip_dst.s_addr = sin.sin_addr.s_addr;
-    
-    // create tcp header
-    fill_tcp_header(tcph, port, type);
+void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {
 
-    // fill buffer with payload
-    
-    // ...
-    /* if no payload */
-    iph->ip_len = sizeof (struct ipheader) + sizeof(tcpheader);
+    struct sockaddr_in sin, din;
 
+    sin.sin_family = AF_INET;
+    din.sin_family = AF_INET;
+
+    sin.sin_port = htons(udp_dst_port);
+    din.sin_port = htons(udp_src_port);
+
+    char host[NI_MAXHOST];
+    get_hostip(&host);
+
+    unsigned long dst_addr = inet_addr(server_ip);
+    if (dst_addr == INADDR_NONE) {
+        fprintf(stderr, "Invalid address\n");
+        exit(EXIT_FAILURE);
+    }
+    unsigned long host_addr = inet_addr(host);
+    if (host_addr == INADDR_NONE) {
+        fprintf(stderr, "Invalid address\n");
+        exit(EXIT_FAILURE);
+    }
+
+    sin.sin_addr.s_addr = dst_addr;
+    din.sin_addr.s_addr = host_addr;
+
+    ip->iph_ihl = 5;
+    ip->iph_tos = 16;
+    ip->iph_len = sizeof(struct ipheader) + sizeof(struct udpheader);
+    ip->iph_ident = htons(54321);
+    ip->iph_ttl = ttl;
+    ip->iph_protocol = 17; // UDP
+    ip->iph_sourceip = host_addr;
+    ip->iph_destip = dst_addr;
+
+    udp->udph_srcport = htons(udp_src_port);
+    udp->udph_len = htons(sizeof(struct udpheader));
+
+    // calculate the checksum for integrity
+    ip->iph_chksum = csum((unsigned short *)buffer,
+    sizeof(struct ipheader + sizeof(struct udpheader));
+        
 }
