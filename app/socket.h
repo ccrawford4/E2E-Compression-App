@@ -1,4 +1,8 @@
 #include "main.h"
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+
 
 unsigned short csum(unsigned short *buf, int nwords);
 

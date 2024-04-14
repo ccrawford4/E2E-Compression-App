@@ -55,16 +55,21 @@ void recv_packets(int sockfd) {
     
 }
 
-void fill_tcp_header(struct tcpheader *tcph, unsigned int port) {
+void fill_tcp_header(struct tcpheader *tcph, unsigned int port, int type) {
     tcph->th_sport = htons(port);
-    tcph->th_flags = TH_SYN;
+    tcph->th_flags = type;
 }
 
-void fill_ip_header(struct ipheader *iph) {
+void fill_header(struct ipheader *iph, unsigned int port, struct int type, char* buffer) {
     // iph->ip_v -> done automatically
     iph->ip_tos = 0;
     iph->ip_dst.s_addr = sin.sin_addr.s_addr;
+    
+    // create tcp header
+    fill_tcp_header(tcph, port, type);
 
+    // fill buffer with payload
+    
     // ...
     /* if no payload */
     iph->ip_len = sizeof (struct ipheader) + sizeof(tcpheader);
