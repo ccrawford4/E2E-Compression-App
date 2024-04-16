@@ -51,7 +51,7 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
                    buffer);
     fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
-    send_packets(buffer, sizeof(buffer), sockfd, ip, &sin);
+    send_packets(buffer, sizeof(buffer) * sizeof(char), sockfd, ip, &sin);
 
 }
 
