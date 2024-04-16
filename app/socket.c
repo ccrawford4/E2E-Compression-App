@@ -155,8 +155,8 @@ void fill_ip_header(struct iphdr *ip, size_t struct_size, unsigned int ttl, unsi
 
 void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port, unsigned int dst_port, int type) 
 {
-    tcp->th_sport = src_port;
-    tcp->th_dport = dst_port;
+    tcp->th_sport = htons(src_port);
+    tcp->th_dport = htons(dst_port);
     tcp->th_seq = htonl(1);
     tcp->th_ack = 0;
     tcp->th_flags = type; // change to type
@@ -164,6 +164,7 @@ void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port, unsigned int dst
     tcp->th_sum = 0;
     tcp->th_urp = 0;
     tcp->check = 0;
+    tcp->th_off = 5;     // Header length in 32-bit words
 }
 
 void fill_udp_header(char *buffer, struct iphdr *ip, struct udphdr *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {  

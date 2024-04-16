@@ -11,7 +11,6 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
     // type will equal SYN or 
     int sockfd = init_socket(IPPROTO_TCP);
 
-
     char *host = (char*)malloc(NI_MAXHOST);
     if (host == NULL) {
         handle_error(sockfd, "Memory allocation error");
@@ -130,7 +129,7 @@ int main(int argc, char **argv) {
     if (dst_port == 0)
         handle_key_error(dst_port, "TCP_HEADSYN_dest_port_number", config_file);
 
-
+    printf("dst_port: %d\n", dst_port);
     create_tcp_packet(src_port, dst_port, server_ip, ttl);
     return EXIT_SUCCESS;
 
