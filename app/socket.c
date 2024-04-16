@@ -137,7 +137,7 @@ void get_hostip(char *host) {
 }
 
 void fill_ip_header(struct iphdr *ip, size_t struct_size, unsigned int ttl, unsigned int proto,
-                    unsigned long dst_addr, unsigned long host_addr, char* buffer) {
+                    unsigned long dst_addr, unsigned long host_addr) {
 
     ip->version = 4; // IPv4
     ip->ihl = 5;     // length of IP header in 32-bit words
@@ -149,9 +149,6 @@ void fill_ip_header(struct iphdr *ip, size_t struct_size, unsigned int ttl, unsi
     ip->check = 0;
     ip->saddr = host_addr;
     ip->daddr = dst_addr;
-
-    ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + struct_size);
-
 }
 
 //void fill_header(char *buffer, struct iphdr *ip, struct udphdr
@@ -166,6 +163,7 @@ void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port, unsigned int dst
     tcp->th_win = htons(32767);
     tcp->th_sum = 0;
     tcp->th_urp = 0;
+    tcp->check = 0;
 }
 
 void fill_udp_header(char *buffer, struct iphdr *ip, struct udphdr *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {  
@@ -195,7 +193,7 @@ void fill_udp_header(char *buffer, struct iphdr *ip, struct udphdr *udp, struct 
     sin->sin_addr.s_addr = dst_addr;
     din->sin_addr.s_addr = host_addr;
     
-    fill_ip_header(ip, sizeof(struct udphdr), ttl, UDP_PROTO, dst_addr, host_addr, buffer);
+    fill_ip_header(ip, sizeof(struct udphdr), ttl, UDP_PROTO, dst_addr, host_addr);
 
     udp->uh_sport = htons(udp_src_port);
     udp->uh_dport = htons(udp_dst_port);

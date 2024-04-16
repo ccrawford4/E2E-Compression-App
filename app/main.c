@@ -10,17 +10,13 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
                      unsigned int ttl) {
     // type will equal SYN or 
     int sockfd = init_socket(IPPROTO_TCP);
-    struct sockaddr_in sin, din;
-    sin.sin_family = AF_INET;
-    sin.sin_family = AF_INET;
 
-    sin.sin_port = htons(dst_port);
-    din.sin_port = htons(src_port);
 
     char *host = (char*)malloc(NI_MAXHOST);
     if (host == NULL) {
         handle_error(sockfd, "Memory allocation error");
     }
+
     get_hostip(host);
     unsigned long host_addr = inet_addr(host);
     free(host);
@@ -32,26 +28,27 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
     if (dst_addr == INADDR_NONE) {
         handle_error(sockfd, "Invalid address");
     }
+    
+    struct sockaddr_in sin;
+    memset(&sin, 0, sizeof(sin));
+    sin.sin_family = AF_INET;
+    sin.sin_port = htons(dst_port);
     sin.sin_addr.s_addr = dst_addr;
-    din.sin_addr.s_addr = host_addr;
 
-    struct iphdr *ip = (struct iphdr *)malloc(sizeof(struct iphdr));
-    if (ip == NULL) {
-        handle_error(sockfd, "Memory allocation error");
-    }
-    struct tcphdr *tcp = (struct tcphdr *)malloc(sizeof(struct tcphdr));
-    if (tcp == NULL) {
-        handle_error(sockfd, "Memory allocation error");
-    }
-    char *buffer = (char*)malloc(NI_MAXHOST);
-    if (buffer == NULL) {
-        handle_error(sockfd, "Memory allocation error");
-    }
-    fill_ip_header(ip, sizeof(struct tcphdr), ttl, IPPROTO_TCP, dst_addr, host_addr,
-                   buffer);
+    char buffer[sizeof(struct iphdr) + sizeof(struct tcphdr)];
+
+    struct iphdr *ip = (struct iphdr *) buffer;
+    struct tcphdr *tcp = (struct tcphdr *) (buffer + sizeof(struct iphdr));
+
+    fill_ip_header(ip, sizeof(struct tcphdr), ttl, IPPROTO_TCP, dst_addr, host_addr);
     fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
-    send_packets(buffer, sizeof(buffer) * sizeof(char), sockfd, ip, &sin);
+    ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
+                     sizeof(struct tcphdr));
+    tcp->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
+                     sizeof(struct tcphdr));
+
+    send_packets(buffer, ip->tot_len, sockfd, ip, &sin);
 
 }
 
