@@ -51,6 +51,8 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
                    buffer);
     fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
+    send_packets(buffer, sizeof(buffer), sockfd, ip, &sin);
+
 }
 
 
@@ -122,10 +124,17 @@ int main(int argc, char **argv) {
     if (ttl == 0 && strcmp(ttl_str, "0")) {
         handle_key_error(ttl, "UDP_packet_TTL", config_file);
     }
-
-    struct iphdr *ip;
-    // TODO
     
+    // src_port, dst_port, server_ip, ttl
+    unsigned int src_port = (unsigned int)atoi(get_value(config_file, "TCP_PREPROB_port_number"));
+    if (src_port == 0)
+        handle_key_error(src_port, "TCP_PREPROB_port_number", config_file);
+    unsigned int dst_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
+    if (dst_port == 0)
+        handle_key_error(dst_port, "TCP_HEADSYN_dest_port_number", config_file);
 
+
+    create_tcp_packet(src_port, dst_port, server_ip, ttl);
+    return EXIT_SUCCESS;
 
 }

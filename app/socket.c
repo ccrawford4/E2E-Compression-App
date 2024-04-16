@@ -7,6 +7,15 @@
 #define UDP_PROTO 17
 #define RANDOM_FILE "random_file"
 
+void send_packets(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
+                 struct sockaddr_in *sin) {
+    int num_packets = sendto(sockfd, buffer, buffer_len, 0, (struct sockaddr *)sin, sizeof(struct sockaddr_in));
+    if (num_packets < 0) {
+        handle_error(sockfd, "sendto()");
+    }
+    printf("Sent SYN packet!\n");
+}
+
 int init_socket(int type) {
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, type)) < 0) {
@@ -153,7 +162,7 @@ void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port, unsigned int dst
     tcp->th_dport = dst_port;
     tcp->th_seq = htonl(1);
     tcp->th_ack = 0;
-    tcp->th_flags = TH_SYN; // change to type
+    tcp->th_flags = type; // change to type
     tcp->th_win = htons(32767);
     tcp->th_sum = 0;
     tcp->th_urp = 0;
