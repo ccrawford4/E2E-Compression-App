@@ -6,8 +6,8 @@
 #define PCKT_LEN 8192
 #define ERROR "ERROR"
 
-void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char* server_ip,
-                     unsigned int ttl) {
+void tcp_phase(unsigned int src_port, unsigned int dst_port, const char* server_ip,
+                     unsigned int ttl, int type) {
     // type will equal SYN or 
     int sockfd = init_socket(IPPROTO_TCP);
 
@@ -40,7 +40,7 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
     struct tcphdr *tcp = (struct tcphdr *) (buffer + sizeof(struct iphdr));
 
     fill_ip_header(ip, sizeof(struct tcphdr), ttl, IPPROTO_TCP, dst_addr, host_addr);
-    fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
+    fill_tcp_header(tcp, src_port, dst_port, type);
 
     ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
                      sizeof(struct tcphdr));
@@ -82,8 +82,6 @@ int main(int argc, char **argv) {
     // If the RST packet is loss (use a timer) -> 
     // output: "Failed to detect due to insufficent information"
     
-    // compdetect myconfig.json
-
     if (argc != 2) {
         printf("usage: \n");
         printf("./compdetect <file_name>.json>\n");
@@ -129,8 +127,7 @@ int main(int argc, char **argv) {
     if (dst_port == 0)
         handle_key_error(dst_port, "TCP_HEADSYN_dest_port_number", config_file);
 
-    printf("dst_port: %d\n", dst_port);
-    create_tcp_packet(src_port, dst_port, server_ip, ttl);
+    tcp_phase(src_port, dst_port, server_ip, ttl, TH_SYN);
     return EXIT_SUCCESS;
 
 }
