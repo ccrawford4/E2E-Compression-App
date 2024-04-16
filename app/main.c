@@ -11,11 +11,11 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
     // type will equal SYN or 
     int sockfd = init_socket(IPPROTO_TCP);
     struct sockaddr_in sin, din;
-    sin->sin_family = AF_INET;
-    sin->sin_family = AF_INET;
+    sin.sin_family = AF_INET;
+    sin.sin_family = AF_INET;
 
-    sin->sin_port = htons(dst_port);
-    din->sin_port = htons(src_port);
+    sin.sin_port = htons(dst_port);
+    din.sin_port = htons(src_port);
 
     char *host = (char*)malloc(NI_MAXHOST);
     if (host == NULL) {
@@ -32,24 +32,24 @@ void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char*
     if (dst_addr == INADDR_NONE) {
         handle_error(sockfd, "Invalid address");
     }
-    sin->sin_addr.s_addr = dst_addr;
-    din->sin_addr.s_addr = host_addr;
+    sin.sin_addr.s_addr = dst_addr;
+    din.sin_addr.s_addr = host_addr;
 
-    struct ipheader *ip = (struct ipheader *)malloc(sizeof(struct ipheader));
-    if (ipheader == NULL) {
+    struct iphdr *ip = (struct iphdr *)malloc(sizeof(struct iphdr));
+    if (ip == NULL) {
         handle_error(sockfd, "Memory allocation error");
     }
-    struct tcpheader *tcp = (struct tcpheader *)malloc(sizeof(struct tcpheader));
-    if (tcpheader == NULL) {
+    struct tcphdr *tcp = (struct tcphdr *)malloc(sizeof(struct tcphdr));
+    if (tcp == NULL) {
         handle_error(sockfd, "Memory allocation error");
     }
     char *buffer = (char*)malloc(NI_MAXHOST);
     if (buffer == NULL) {
         handle_error(sockfd, "Memory allocation error");
     }
-    fill_ip_header(ip, sizeof(struct tcpheader), ttl, TCP_PROTO, dst_addr, host_addr,
+    fill_ip_header(ip, sizeof(struct tcphdr), ttl, IPPROTO_TCP, dst_addr, host_addr,
                    buffer);
-    fill_tcp_header(tcp, src_port, dst_port, SYN);
+    fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
 }
 
@@ -60,8 +60,8 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
 
     char* buffer = (char*)malloc(PCKT_LEN);
 
-    struct ipheader *ip = (struct ipheader *) buffer;
-    struct udpheader *udp = (struct udpheader *) (buffer + sizeof(struct ipheader));
+    struct iphdr *ip = (struct iphdr *) buffer;
+    struct udphdr *udp = (struct udphdr *) (buffer + sizeof(struct iphdr));
     struct sockaddr_in sin, din;
 
     fill_udp_header(buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
         handle_key_error(ttl, "UDP_packet_TTL", config_file);
     }
 
-    struct ipheader *ip;
+    struct iphdr *ip;
     // TODO
     
 

@@ -92,17 +92,17 @@ void recv_packets(int sockfd) {
         handle_error(sockfd, "recvfrom()");
     }
     // ...
-    struct ipheader *ip_head = (struct ipheader*)buf;
+    struct iphdr *ip_head = (struct iphdr*)buf;
     // exxtract ip_head_len using ip_head->ihl
     
     //TODO: Fix to use real header size instead of 56
-    struct tcpheader *tcp_head = (struct tcpheader*) (buf + 56);
+    struct tcphdr *tcp_head = (struct tcphdr*) (buf + 56);
     // set pointer to beginning of data
     // ...
     
 }
 
-void get_hostip(char* host) {
+void get_hostip(char *host) {
     struct ifaddrs *ifaddr, *ifa;
     int family;
     if (getifaddrs(&ifaddr) < 0) {
@@ -127,33 +127,39 @@ void get_hostip(char* host) {
     }
 }
 
-void fill_ip_header(struct ipheader *ip, size_t struct_size, unsigned int ttl, unsigned int proto,
+void fill_ip_header(struct iphdr *ip, size_t struct_size, unsigned int ttl, unsigned int proto,
                     unsigned long dst_addr, unsigned long host_addr, char* buffer) {
-    ip->iph_tos = 16;
-    ip->iph_len = sizeof(struct ipheader) + struct_size;
-    ip->iph_ttl = ttl;
-    ip->iph_protocol = proto;
-    ip->iph_sourceip = host_addr;
-    ip->iph_dstip = dst_addr;
 
-    ip->iph_chksum = csum((unsigned short *)buffer, sizeof(struct ipheader) + struct_size);
+    ip->version = 4; // IPv4
+    ip->ihl = 5;     // length of IP header in 32-bit words
+    ip->tos = 16; // could be 0
+    ip->tot_len = sizeof(struct iphdr) + struct_size;
+    ip->ttl = ttl;
+    ip->frag_off = 0;
+    ip->protocol = proto;
+    ip->check = 0;
+    ip->saddr = host_addr;
+    ip->daddr = dst_addr;
+
+    ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + struct_size);
 
 }
 
-//void fill_header(char *buffer, struct ipheader *ip, struct udpheader
+//void fill_header(char *buffer, struct iphdr *ip, struct udphdr
 
-void fill_tcp_header(struct tcpheader *tcp, unsigned int src_port, unsigned                         int dst_port, int type) {:wq
+void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port, unsigned int dst_port, int type) 
+{
     tcp->th_sport = src_port;
     tcp->th_dport = dst_port;
     tcp->th_seq = htonl(1);
     tcp->th_ack = 0;
-    tcp->th_flags = SYN; // change to type
+    tcp->th_flags = TH_SYN; // change to type
     tcp->th_win = htons(32767);
     tcp->th_sum = 0;
     tcp->th_urp = 0;
 }
 
-void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {  
+void fill_udp_header(char *buffer, struct iphdr *ip, struct udphdr *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {  
 
     sin->sin_family = AF_INET;
     din->sin_family = AF_INET;
@@ -180,11 +186,11 @@ void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, s
     sin->sin_addr.s_addr = dst_addr;
     din->sin_addr.s_addr = host_addr;
     
-    fill_ip_header(ip, sizeof(struct udpheader), ttl, UDP_PROTO, dst_addr, host_addr, buffer);
+    fill_ip_header(ip, sizeof(struct udphdr), ttl, UDP_PROTO, dst_addr, host_addr, buffer);
 
-    udp->udph_srcport = htons(udp_src_port);
-    udp->udph_destport = htons(udp_dst_port);
-    udp->udph_len = htons(sizeof(struct udpheader));
-    udp->udph_chksum = csum((unsigned short *)buffer, sizeof(struct ipheader) + sizeof(struct udpheader));
+    udp->uh_sport = htons(udp_src_port);
+    udp->uh_dport = htons(udp_dst_port);
+    udp->uh_ulen = htons(sizeof(struct udphdr));
+    udp->uh_sum = csum((unsigned short *)buffer, sizeof(struct iphdr) + sizeof(struct udphdr));
         
 }
