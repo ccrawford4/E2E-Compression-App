@@ -6,9 +6,51 @@
 #define PCKT_LEN 8192
 #define ERROR "ERROR"
 
-void send_tcp_packet(unsigned int port) {
+void create_tcp_packet(unsigned int src_port, unsigned int dst_port, const char* server_ip,
+                     unsigned int ttl) {
     // type will equal SYN or 
     int sockfd = init_socket(IPPROTO_TCP);
+    struct sockaddr_in sin, din;
+    sin->sin_family = AF_INET;
+    sin->sin_family = AF_INET;
+
+    sin->sin_port = htons(dst_port);
+    din->sin_port = htons(src_port);
+
+    char *host = (char*)malloc(NI_MAXHOST);
+    if (host == NULL) {
+        handle_error(sockfd, "Memory allocation error");
+    }
+    get_hostip(host);
+    unsigned long host_addr = inet_addr(host);
+    free(host);
+
+    if (host_addr == INADDR_NONE) {
+        handle_error(sockfd, "Invalid address");
+    }
+    unsigned long dst_addr = inet_addr(server_ip);
+    if (dst_addr == INADDR_NONE) {
+        handle_error(sockfd, "Invalid address");
+    }
+    sin->sin_addr.s_addr = dst_addr;
+    din->sin_addr.s_addr = host_addr;
+
+    struct ipheader *ip = (struct ipheader *)malloc(sizeof(struct ipheader));
+    if (ipheader == NULL) {
+        handle_error(sockfd, "Memory allocation error");
+    }
+    struct tcpheader *tcp = (struct tcpheader *)malloc(sizeof(struct tcpheader));
+    if (tcpheader == NULL) {
+        handle_error(sockfd, "Memory allocation error");
+    }
+    char *buffer = (char*)malloc(NI_MAXHOST);
+    if (buffer == NULL) {
+        handle_error(sockfd, "Memory allocation error");
+    }
+    fill_ip_header(ip, sizeof(struct tcpheader), ttl, TCP_PROTO, dst_addr, host_addr,
+                   buffer);
+    fill_tcp_header(tcp, src_port, dst_port, SYN);
+
 }
 
 

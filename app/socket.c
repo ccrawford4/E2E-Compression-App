@@ -142,6 +142,16 @@ void fill_ip_header(struct ipheader *ip, size_t struct_size, unsigned int ttl, u
 
 //void fill_header(char *buffer, struct ipheader *ip, struct udpheader
 
+void fill_tcp_header(struct tcpheader *tcp, unsigned int src_port, unsigned                         int dst_port, int type) {:wq
+    tcp->th_sport = src_port;
+    tcp->th_dport = dst_port;
+    tcp->th_seq = htonl(1);
+    tcp->th_ack = 0;
+    tcp->th_flags = SYN; // change to type
+    tcp->th_win = htons(32767);
+    tcp->th_sum = 0;
+    tcp->th_urp = 0;
+}
 
 void fill_udp_header(char *buffer, struct ipheader *ip, struct udpheader *udp, struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd, unsigned int udp_dst_port, unsigned int udp_src_port, const char* server_ip, unsigned int ttl) {  
 
