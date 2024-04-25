@@ -3,8 +3,8 @@
 #include "headers/shared.h"
 #include "headers/json.h"
 
-#define PCKT_LEN 8192
 #define ERROR "ERROR"
+#define RANDOM_FILE "random_file"
 
 void tcp_phase(struct sockaddr_in *sin, unsigned int src_port, unsigned int dst_port, const char* server_ip,
                      unsigned int ttl, int type) {
@@ -48,10 +48,21 @@ void tcp_phase(struct sockaddr_in *sin, unsigned int src_port, unsigned int dst_
 
 
 void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
-               const char* server_ip, unsigned int ttl) {
-   int sockfd = init_socket(IPPROTO_UDP);
+               const char* server_ip, unsigned int ttl, int n_pckts,
+               int pckt_len, bool high_entropy) 
+{
+    int sockfd = init_socket(IPPROTO_UDP);
+    char* buffer = (char*)malloc(pckt_len);
+    if (buffer == NULL) {
+        handle_error(sockfd, "Memory Allocation Error");
+    }
+    memset(buffer, 0, pckt_len);
 
-    char* buffer = (char*)malloc(PCKT_LEN);
+    FILE *fp = fopen(RANDOM_FILE, "rb");
+    if (fp == NULL) {
+        free(buffer);
+        handle_error(sockfd, "Error opening file");
+    }
 
     struct iphdr *ip = (struct iphdr *) buffer;
     struct udphdr *udp = (struct udphdr *) (buffer + sizeof(struct iphdr));
@@ -60,7 +71,23 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
     fill_udp_header(buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
                     udp_src_port, server_ip, ttl);
 
-    send_udp();
+
+   for (int i = 0; i < n_pckts; i++) {
+        if (high_entropy) {
+            fseek(fp, 0, SEEK_SET);
+            size_t bytes_read = fread(payload, 1, pckt_len, fp);
+            if (bytes_read < pckt_len) {
+                handle_error(sockfd, "Failed to read bytes from file");              
+            }
+
+        }
+        // Set the packet ID
+        buffer[0] = i & 0xFF;
+        buffer[1] = (i >> 8) & 0xFF;
+
+        ssize_t bytes_sent = sendto
+   }
+   send_udp();
     // SEND PACKETS 
     // close fd
 }

@@ -22,9 +22,26 @@ void send_packets(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
 }
 
 void send_udp(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
-             struct sockaddr_in *sin) {
-    //TODO: send UDP
+             struct sockaddr_in *sin) 
+{
+     for (int i = 0; i < n_pckts; i++) {
+        if (high_entropy) {
+            fseek(fp, 0, SEEK_SET);
+            size_t bytes_read = fread(payload, 1, pckt_len, fp);
+            if (bytes_read < pckt_len) {
+                handle_error(sockfd, "Failed to read bytes from file");
+            }
 
+        }
+        // Set the packet ID
+        buffer[0] = i & 0xFF;
+        buffer[1] = (i >> 8) & 0xFF;
+
+        ssize_t bytes_sent = sendto
+   }
+   send_udp();
+    // SEND PACKETS
+    // close fd
 }
 
 int init_socket(int type) {
