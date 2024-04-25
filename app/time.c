@@ -23,7 +23,6 @@ double calc_stream_time(unsigned int m_time,
         handle_error(sockfd, "Memory allocation failure");
 
     socklen_t = sizeof(server_addr);
-    int n;
 
     struct timeval timeout;
     timeout.tv_sec = m_time; // measurement time
@@ -45,13 +44,17 @@ double calc_stream_time(unsigned int m_time,
         if (elapsed >= m_time)
             break;
 
-        n = recv(sockfd, buffer, MAX_BUFFER_LEN - 1, 0,
-                (strut sockaddr *)&server_addr, &len);
-
-        // if buffer == RST packet
-            // end_time = current_time;
-            // found_rst = true;
-            // break;
+        ssize_t n = recv(sockfd, buffer, MAX_BUFFER_LEN - 1, 0,
+                (struct sockaddr *)&server_addr, &len);
+        
+        if (n == -1) {
+            if (errno == ECONNRESET) {
+                end_time = curr_time;
+                found_rst = true;
+                break;
+            }
+            handle_error(sockfd, "recv()");
+        }
          
     }
 

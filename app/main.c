@@ -6,7 +6,7 @@
 #define PCKT_LEN 8192
 #define ERROR "ERROR"
 
-void tcp_phase(unsigned int src_port, unsigned int dst_port, const char* server_ip,
+void tcp_phase(struct sockaddr_in *sin, unsigned int src_port, unsigned int dst_port, const char* server_ip,
                      unsigned int ttl, int type) {
     // type will equal SYN or 
     int sockfd = init_socket(IPPROTO_TCP);
@@ -28,11 +28,6 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char* server_
         handle_error(sockfd, "Invalid address");
     }
     
-    struct sockaddr_in sin;
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_port = htons(dst_port);
-    sin.sin_addr.s_addr = dst_addr;
 
     char buffer[sizeof(struct iphdr) + sizeof(struct tcphdr)];
 
@@ -47,7 +42,7 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char* server_
     tcp->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
                      sizeof(struct tcphdr));
 
-    send_packets(buffer, ip->tot_len, sockfd, ip, &sin);
+    send_packets(buffer, ip->tot_len, sockfd, ip, sin);
 
 }
 
@@ -126,8 +121,22 @@ int main(int argc, char **argv) {
     unsigned int dst_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
     if (dst_port == 0)
         handle_key_error(dst_port, "TCP_HEADSYN_dest_port_number", config_file);
+    
+    struct sockaddr_in sin;
+    memset(&sin, 0, sizeof(sin));
+    sin.sin_family = AF_INET;
+    sin.sin_port = htons(dst_port);
+    sin.sin_addr.s_addr = dst_addr;    // should create the server_addr here pass into tcp_phase
 
-    tcp_phase(src_port, dst_port, server_ip, ttl, TH_SYN);
+    tcp_phase(&sin, src_port, dst_port, server_ip, ttl, TH_SYN);
+    
+    unsigned int m_time = (unsigned int)atoi(get_value(config_file, "measurement_time"));
+    if (m_time == 0)
+        handle_key_error(m_time, "measurement_time", config_file);
+     // server
+
+    
+
     return EXIT_SUCCESS;
 
 }
