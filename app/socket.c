@@ -7,13 +7,24 @@
 #define UDP_PROTO 17
 #define RANDOM_FILE "random_file"
 
+#define DEBUG 1
+
 void send_packets(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
                  struct sockaddr_in *sin) {
-    int num_packets = sendto(sockfd, buffer, buffer_len, 0, (struct sockaddr *)sin, sizeof(struct sockaddr_in));
+    int num_packets = sendto(sockfd, buffer, buffer_len, 0, (struct sockaddr *)sin,
+                            sizeof(struct sockaddr_in));
     if (num_packets < 0) {
         handle_error(sockfd, "sendto()");
     }
-    printf("Sent SYN packet!\n");
+    #ifdef DEBUG
+     printf("Sent SYN packet!\n");
+    #endif
+}
+
+void send_udp(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
+             struct sockaddr_in *sin) {
+    //TODO: send UDP
+
 }
 
 int init_socket(int type) {
