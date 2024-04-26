@@ -9,7 +9,7 @@
 
 #define DEBUG 1
 
-void send_packets(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
+void send_tcp_pckt(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
                  struct sockaddr_in *sin) {
     int num_packets = sendto(sockfd, buffer, buffer_len, 0, (struct sockaddr *)sin,
                             sizeof(struct sockaddr_in));
@@ -21,13 +21,18 @@ void send_packets(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
     #endif
 }
 
-void send_udp(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
-             struct sockaddr_in *sin) 
+void send_udp_pckts(char *buffer, int sockfd, struct iphdr *ip,
+             struct sockaddr_in sin, int n_pckts, int pckt_len, bool high_entropy) 
 {
+    FILE *fp = fopen(RANDOM_FILE, "rb");
+    if (fp == NULL) {
+        handle_error(sockfd, "Error opening file");
+     }
+
      for (int i = 0; i < n_pckts; i++) {
         if (high_entropy) {
             fseek(fp, 0, SEEK_SET);
-            size_t bytes_read = fread(payload, 1, pckt_len, fp);
+            size_t bytes_read = fread(buffer, 1, pckt_len, fp);
             if (bytes_read < pckt_len) {
                 handle_error(sockfd, "Failed to read bytes from file");
             }
@@ -37,11 +42,12 @@ void send_udp(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
         buffer[0] = i & 0xFF;
         buffer[1] = (i >> 8) & 0xFF;
 
-        ssize_t bytes_sent = sendto
+        ssize_t bytes_sent = sendto(sockfd, buffer, pckt_len, 0,
+                                   (struct sockaddr *)&sin, sizeof(sin));
+        if (bytes_sent < 0) {
+            handle_error(sockfd, "sendto()");
+        }
    }
-   send_udp();
-    // SEND PACKETS
-    // close fd
 }
 
 int init_socket(int type) {
@@ -66,55 +72,6 @@ unsigned short csum(unsigned short *buf, int nwords) {
      sum = (sum >> 16) + (sum &0xffff);
      sum += (sum >> 16);
     return (unsigned short) (~sum);
-}
-
-// Sends UDP packets
-//TODO fix
-void send_udp_packets(int sockfd, struct sockaddr_in server_addr,
-                      int server_port, int packet_size, int num_packets,
-                      bool low_entropy) {
-  char *payload = (char *)malloc(packet_size);
-  if (payload == NULL) {
-    perror("Memory allocation failed\n");
-    abort();
-  }
-  memset(payload, 0, packet_size);
-
-  FILE *fp = fopen(RANDOM_FILE, "rb");
-  if (fp == NULL) {
-    free(payload);
-    printf("Error Opening File %s\n", RANDOM_FILE);
-    exit(EXIT_FAILURE);
-  }
-
-  // Send the packets
-  for (int i = 0; i < num_packets; i++) {
-    if (!low_entropy) {
-      fseek(fp, 0, SEEK_SET);
-      size_t bytes_read = fread(payload, 1, packet_size, fp);
-      if (bytes_read < packet_size) {
-        fprintf(stderr,
-                "Failed to read %d bytes from the file for packet %d.\n",
-                packet_size, i);
-        break;
-      }
-    }
-
-    // Set the payload ID
-    payload[0] = i & 0xFF;
-    payload[1] = (i >> 8) & 0xFF;
-
-    ssize_t bytes_sent =
-        sendto(sockfd, payload, packet_size, 0,
-               (const struct sockaddr *)&server_addr, sizeof(server_addr));
-    if (bytes_sent < 0) {
-      perror("sendto()");
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  fclose(fp);
-  free(payload);
 }
 
 void recv_packets(int sockfd) {

@@ -42,7 +42,7 @@ void tcp_phase(struct sockaddr_in *sin, unsigned int src_port, unsigned int dst_
     tcp->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
                      sizeof(struct tcphdr));
 
-    send_packets(buffer, ip->tot_len, sockfd, ip, sin);
+    send_tcp_pckt(buffer, ip->tot_len, sockfd, ip, sin);
 
 }
 
@@ -58,12 +58,6 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
     }
     memset(buffer, 0, pckt_len);
 
-    FILE *fp = fopen(RANDOM_FILE, "rb");
-    if (fp == NULL) {
-        free(buffer);
-        handle_error(sockfd, "Error opening file");
-    }
-
     struct iphdr *ip = (struct iphdr *) buffer;
     struct udphdr *udp = (struct udphdr *) (buffer + sizeof(struct iphdr));
     struct sockaddr_in sin, din;
@@ -71,25 +65,8 @@ void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
     fill_udp_header(buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
                     udp_src_port, server_ip, ttl);
 
+    send_udp_pckts(buffer, sockfd, ip, sin, n_pckts, pckt_len, high_entropy);
 
-   for (int i = 0; i < n_pckts; i++) {
-        if (high_entropy) {
-            fseek(fp, 0, SEEK_SET);
-            size_t bytes_read = fread(payload, 1, pckt_len, fp);
-            if (bytes_read < pckt_len) {
-                handle_error(sockfd, "Failed to read bytes from file");              
-            }
-
-        }
-        // Set the packet ID
-        buffer[0] = i & 0xFF;
-        buffer[1] = (i >> 8) & 0xFF;
-
-        ssize_t bytes_sent = sendto
-   }
-   send_udp();
-    // SEND PACKETS 
-    // close fd
 }
 
 
@@ -114,11 +91,19 @@ int main(int argc, char **argv) {
 
     char* config_file = argv[1];
     
-    const char* server_addr = get_value(config_file, "server_ip");
-    if (!strcmp(server_addr, ERROR)) {
+    const char* server_ip = get_value(config_file, "server_ip");
+    if (!strcmp(server_ip, ERROR)) {
         printf("ERROR! You must enter a server IP address in the %s file", argv[1]);
         return EXIT_FAILURE;
     }
+    struct hostent *host = gethostbyname(server_ip);
+    if (host == NULL) {
+        perror("Error resolving host");
+        return EXIT_FAILURE;
+    }
+
+    in_addr_t dst_addr = *(in_addr_t *)host->h_addr_list[0];
+
 
     unsigned int hsyn_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
     if (hsyn_port == 0) {
@@ -132,11 +117,7 @@ int main(int argc, char **argv) {
     if (udp_src_port == 0) {
         handle_key_error(udp_src_port, "UDP_src_port_number", config_file);
     }
-    const char *server_ip = get_value(config_file, "server_ip");
-    if (!strcmp(server_ip, ERROR)) {
-        printf("INVALID server_ip in file %s\n", config_file);
-        return EXIT_FAILURE;
-    }
+
     const char* ttl_str = get_value(config_file, "UDP_packet_TTL");
     unsigned int ttl = (unsigned int) atoi(ttl_str);
     if (ttl == 0 && strcmp(ttl_str, "0")) {

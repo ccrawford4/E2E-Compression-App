@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 
-void send_packets(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
+void send_tcp_pckt(char *buffer, size_t buffer_len, int sockfd, struct iphdr *ip,
                  struct sockaddr_in *sin);
 void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port,
                     unsigned int dst_port, int type);
@@ -23,3 +23,6 @@ void fill_ip_header(struct iphdr *ip, size_t struct_size, unsigned int ttl, unsi
 void fill_udp_header(char *buffer, struct iphdr *ip, struct udphdr *udp,
                     struct sockaddr_in *sin, struct sockaddr_in *din, int sockfd,
                     unsigned int udp_dst_port, unsigned int udp_src_port, const char *server_ip, unsigned int ttl);
+
+void send_udp_pckts(char *buffer, int sockfd, struct iphdr *ip, struct sockaddr_in sin,
+                    int n_pckts, int pckt_len, bool high_entropy);
