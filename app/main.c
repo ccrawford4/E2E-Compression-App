@@ -57,11 +57,7 @@ void udp_phase(unsigned int udp_src_port, unsigned int udp_dst_port,
                int pckt_len, bool high_entropy) 
 {
     int sockfd = init_socket(IPPROTO_UDP);
-    char* buffer = (char*)malloc(pckt_len);
-    if (buffer == NULL) {
-        handle_error(sockfd, "Memory Allocation Error");
-    }
-    memset(buffer, 0, pckt_len);
+    char buffer[sizeof(struct iphdr) + sizeof(struct tcphdr) + pckt_len];
 
     struct iphdr *ip = (struct iphdr *) buffer;
     struct udphdr *udp = (struct udphdr *) (buffer + sizeof(struct iphdr));
