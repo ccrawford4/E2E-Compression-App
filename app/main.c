@@ -106,26 +106,29 @@ int main(int argc, char **argv) {
 
 
     unsigned int hsyn_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
+    unsigned int udp_dst_port = (unsigned int)atoi(get_value(config_file, "UDP_dest_port_number"));
+    unsigned int udp_src_port = (unsigned int)atoi(get_value(config_file, "UDP_src_port_number"));
+    unsigned int ttl = (unsigned int)atoi(get_value(config_file, "UDP_packet_TTL"));
+    unsigned int preprob_port = (unsigned int)atoi(get_value(config_file, "TCP_PREPROB_port_number"));
+
+
+
     if (hsyn_port == 0) {
         handle_key_error(hsyn_port, "TCP_HEADSYN_dest_port_number", config_file);
     }
-    unsigned int udp_dst_port = (unsigned int)atoi(get_value(config_file, "UDP_dest_port_number"));
     if (udp_dst_port == 0) {
         handle_key_error(udp_dst_port, "UDP_dest_port_number", config_file);
     }
-    unsigned int udp_src_port = (unsigned int)atoi(get_value(config_file, "UDP_src_port_number"));
+
     if (udp_src_port == 0) {
         handle_key_error(udp_src_port, "UDP_src_port_number", config_file);
     }
 
-    const char* ttl_str = get_value(config_file, "UDP_packet_TTL");
-    unsigned int ttl = (unsigned int) atoi(ttl_str);
-    if (ttl == 0 && strcmp(ttl_str, "0")) {
+    if (ttl == 0) {
         handle_key_error(ttl, "UDP_packet_TTL", config_file);
     }
     
     // src_port, dst_port, server_ip, ttl
-    unsigned int src_port = (unsigned int)atoi(get_value(config_file, "TCP_PREPROB_port_number"));
     if (src_port == 0)
         handle_key_error(src_port, "TCP_PREPROB_port_number", config_file);
     unsigned int dst_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
