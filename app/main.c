@@ -52,7 +52,7 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *server_
 }
 
 
-void udp_phase(unsigned int udp_dst_port, unsigned int udp_src_port,
+void udp_phase(unsigned int udp_src_port, unsigned int udp_dst_port,
                const char* server_ip, unsigned int ttl, int n_pckts,
                int pckt_len, bool high_entropy) 
 {
@@ -108,6 +108,11 @@ int main(int argc, char **argv) {
     unsigned int udp_dst_port = (unsigned int)atoi(get_value(config_file, "UDP_dest_port_number"));
     unsigned int ttl = (unsigned int)atoi(get_value(config_file, "UDP_packet_TTL"));
     unsigned int m_time = (unsigned int)atoi(get_value(config_file, "measurement_time"));
+    unsigned int n_pckts = (unsigned int)atoi(get_value(config_file, "UDP_packet_train_size"));
+    char *payload_str = (char*)get_value(config_file, "UDP_payload_size");
+    int idx = strlen(payload_str) - 1;
+    *(payload_str + idx) = '\0';        // Remove the 'B' from the Payload String
+    unsigned int pckt_len = (unsigned int)atoi(payload_str);
 
     if (hsyn_port == 0) 
         handle_key_error(hsyn_port, "TCP_HEADSYN_dest_port_number", config_file);
@@ -123,8 +128,13 @@ int main(int argc, char **argv) {
         handle_key_error(ttl, "UDP_packet_TTL", config_file);
     if (m_time == 0)
         handle_key_error(m_time, "measurement_time", config_file);
+    if (n_pckts == 0)
+        handle_key_error(n_pckts, "UDP_packet_train_size", config_file);
+    if (pckt_len == 0)
+        handle_key_error(pckt_len, "UDP_payload_size", config_file);
 
     tcp_phase(tcp_src_port, hsyn_port, server_ip, ttl);
+    udp_phase(udp_src_port, udp_dst_port, server_ip, ttl, n_pckts, pckt_len, false);
         
     return EXIT_SUCCESS;
 }
