@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     if (m_time == 0)
         handle_key_error(m_time, "measurement_time", config_file);
 
-    tcp_phase(hsyn_port, hsyn_port, server_ip, ttl);
+    tcp_phase(tcp_src_port, hsyn_port, server_ip, ttl);
         
     return EXIT_SUCCESS;
 }
