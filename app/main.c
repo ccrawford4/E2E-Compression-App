@@ -6,27 +6,11 @@
 #define ERROR "ERROR"
 #define RANDOM_FILE "random_file"
 
-void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *server_ip, unsigned int ttl) 
+void tcp_phase(unsigned int src_port, unsigned int dst_port, unsigned long host_addr,
+              unsigned int dst_addr, unsigned int ttl) 
 {
 
     int sockfd = init_socket(IPPROTO_TCP);
-
-    char *host = (char*)malloc(NI_MAXHOST);
-    if (host == NULL) {
-        handle_error(sockfd, "Memory allocation error");
-    }
-
-    get_hostip(host);
-    unsigned long host_addr = inet_addr(host);
-    free(host);
-
-    if (host_addr == INADDR_NONE) {
-        handle_error(sockfd, "Invalid address");
-    }
-    unsigned long dst_addr = inet_addr(server_ip);
-    if (dst_addr == INADDR_NONE) {
-        handle_error(sockfd, "Invalid address");
-    }
     
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
@@ -35,11 +19,12 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *server_
     sin.sin_addr.s_addr = dst_addr;
 
     char buffer[sizeof(struct iphdr) + sizeof(struct tcphdr)];
+    memset(&buffer, 0, sizeof(buffer));
 
     struct iphdr *ip = (struct iphdr *) buffer;
     struct tcphdr *tcp = (struct tcphdr *) (buffer + sizeof(struct iphdr));
 
-    fill_ip_header(ip, sizeof(struct tcphdr), ttl, IPPROTO_TCP, dst_addr, host_addr);
+    fill_ip_header(ip, sizeof(buffer), ttl, IPPROTO_TCP, host_addr, dst_addr);
     fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
     ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
@@ -47,26 +32,41 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *server_
     tcp->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
                      sizeof(struct tcphdr));
 
-    send_tcp_pckt(buffer, ip->tot_len, sockfd, ip, &sin);
+    send_tcp_pckt(buffer, ip->tot_len, sockfd, &sin);
+    //TODO: Maybe change for tailsyn
+    close(sockfd);
 
 }
 
 
-void udp_phase(unsigned int udp_src_port, unsigned int udp_dst_port,
-               const char* server_ip, unsigned int ttl, int n_pckts,
-               int pckt_len, bool high_entropy) 
+void udp_phase(unsigned int src_port, unsigned int dst_port,
+               unsigned long host_addr, unsigned long dst_addr, unsigned int ttl,
+               int n_pckts, int pckt_len, bool h_entropy) 
 {
     int sockfd = init_socket(IPPROTO_UDP);
-    char buffer[sizeof(struct iphdr) + sizeof(struct tcphdr) + pckt_len];
+
+    struct sockaddr_in sin;
+    memset(&sin, 0, sizeof(sin));
+    sin.sin_family = AF_INET;
+    sin.sin_port = htons(dst_port);
+    sin.sin_addr.s_addr = dst_addr;
+
+    char buffer[sizeof(struct iphdr) + sizeof(struct udphdr) + pckt_len];
+    memset(&buffer, 0, sizeof(buffer));
 
     struct iphdr *ip = (struct iphdr *) buffer;
     struct udphdr *udp = (struct udphdr *) (buffer + sizeof(struct iphdr));
-    struct sockaddr_in sin, din;
 
-    fill_udp_header(buffer, ip, udp, &sin, &din, sockfd, udp_dst_port,
-                    udp_src_port, server_ip, ttl);
 
-    send_udp_pckts(buffer, sockfd, ip, sin, n_pckts, pckt_len, high_entropy);
+    fill_udp_header(udp, pckt_len, src_port, dst_port);
+    fill_ip_header(ip, sizeof(buffer), ttl, IPPROTO_UDP, host_addr, dst_addr);
+
+    ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + sizeof(struct udphdr));
+    udp->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + sizeof(struct udphdr));
+
+    send_udp_pckts(buffer, ip->tot_len, sockfd, &sin, n_pckts, h_entropy);
+    close(sockfd);
+
 }
 
 
@@ -129,8 +129,30 @@ int main(int argc, char **argv) {
     if (pckt_len == 0)
         handle_key_error(pckt_len, "UDP_payload_size", config_file);
 
-    tcp_phase(tcp_src_port, hsyn_port, server_ip, ttl);
-    udp_phase(udp_src_port, udp_dst_port, server_ip, ttl, n_pckts, pckt_len, false);
+    char *host = (char*)malloc(NI_MAXHOST);
+    if (host == NULL) {
+        printf("Memory allocation error\n");
+        return EXIT_FAILURE;
+    }
+
+    get_hostip(host);
+    unsigned long host_addr = inet_addr(host);
+    free(host);
+
+    if (host_addr == INADDR_NONE) {
+        printf("Invalid IP Address: %lu\n", host_addr);
+        return EXIT_FAILURE;
+    }
+
+    unsigned long dst_addr = inet_addr(server_ip);
+
+    if (host_addr == INADDR_NONE) {
+        printf("Invalid IP Address: %lu\n", dst_addr);
+        return EXIT_FAILURE;
+     }
+
+    tcp_phase(tcp_src_port, hsyn_port, host_addr, dst_addr, ttl);
+    udp_phase(udp_src_port, udp_dst_port, host_addr, dst_addr, ttl, n_pckts, pckt_len, false);
         
     return EXIT_SUCCESS;
 }
