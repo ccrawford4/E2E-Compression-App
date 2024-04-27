@@ -6,8 +6,61 @@
 #define BUF_SIZE 8193
 #define UDP_PROTO 17
 #define RANDOM_FILE "random_file"
-
 #define DEBUG 1
+
+// Pseudo header needed for TCP checksum calculation
+struct pseudo_header {
+    unsigned long src_addr;
+    unsigned long dst_addr;
+    unsigned char placeholder;
+    unsigned char protocol;
+    unsigned short tcp_length;
+};
+
+unsigned short calculate_checksum(unsigned short *ptr, int nbytes) {
+    long sum;
+    unsigned short oddbyte;
+    short answer;
+
+    sum = 0;
+    while (nbytes > 1) {
+        sum += *ptr++;
+        nbytes -= 2;
+    }
+    if (nbytes == 1) {
+        oddbyte = 0;
+        *((unsigned char *)&oddbyte) = *(unsigned char *)ptr;
+        sum += oddbyte;
+    }
+
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum += (sum >> 16);
+    answer = (short)~sum;
+
+    return answer;
+}
+
+void calculate_tcp_checksum(struct iphdr *ip, struct tcphdr *tcp) {
+    struct pseudo_header psh;
+    char *pseudogram;
+    int psize = sizeof(struct pseudo_header) + ntohs(ip->tot_len) - ip->ihl * 4;
+
+    psh.src_addr = ip->saddr;
+    psh.dst_addr = ip->daddr;
+    psh.placeholder = 0;
+    psh.protocol = IPPROTO_TCP;
+    psh.tcp_length = htons(sizeof(struct tcphdr));  // tcp length (not including data)
+
+    int total_len = psize;
+    pseudogram = malloc(total_len);
+
+    memcpy(pseudogram, (char *)&psh, sizeof(struct pseudo_header));
+    memcpy(pseudogram + sizeof(struct pseudo_header), tcp, tcp->doff * 4);
+
+    tcp->check = calculate_checksum((unsigned short *)pseudogram, total_len);
+
+    free(pseudogram);
+}
 
 void send_tcp_pckt(char *buffer, size_t buffer_len, int sockfd, struct sockaddr_in *sin) {
     int num_packets = sendto(sockfd, buffer, buffer_len, 0, (struct sockaddr *)sin,
@@ -127,14 +180,15 @@ void fill_ip_header(struct iphdr *ip, size_t size, unsigned int ttl, unsigned in
 
     ip->version = 4; // IPv4
     ip->ihl = 5;     // length of IP header in 32-bit words
-    ip->tos = 16; // could be 0
-    ip->tot_len = size;
-    ip->ttl = ttl;
-    ip->frag_off = 0;
-    ip->protocol = proto;
-    ip->check = 0;
-    ip->saddr = host_addr;
-    ip->daddr = dst_addr;
+    ip->tos = 0;     // Type of service
+    ip->tot_len = htons(size); // Total length
+    ip->id = htonl(rand()); // ID of the current packet
+    ip->ttl = ttl;      // Time to live
+    ip->frag_off = 0;   // No fragment
+    ip->protocol = proto;   // Protocol
+    ip->check = 0;          // Checksum (temporary)  
+    ip->saddr = host_addr;  // Source IP Address
+    ip->daddr = dst_addr;   // Destination IP address
 }
 
 
@@ -142,10 +196,10 @@ void fill_tcp_header(struct tcphdr *tcp, unsigned int src_port, unsigned int dst
 {
     tcp->th_sport = htons(src_port);
     tcp->th_dport = htons(dst_port);
-    tcp->th_seq = htonl(1);
-    tcp->th_ack = 0;
-    tcp->th_flags = type; // change to type
-    tcp->th_win = htons(32767);
+    tcp->th_seq = htonl(rand());      // Initial sequence num
+    tcp->th_ack = 0;                 // No acknowledgment
+    tcp->th_flags = type;            // change to type
+    tcp->th_win = htons(5840);      // Maximum allowed window size
     tcp->th_sum = 0;
     tcp->th_urp = 0;
     tcp->check = 0;

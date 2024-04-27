@@ -23,3 +23,4 @@ void fill_udp_header(struct udphdr *udp, int pckt_len, unsigned int src_port, un
 
 void send_udp_pckts(char *buffer, size_t buffer_len, int sockfd, 
                     struct sockaddr_in *sin, int n_pckts, bool h_entropy);
+void calculate_tcp_checksum(struct iphdr *ip, struct tcphdr *tcp);

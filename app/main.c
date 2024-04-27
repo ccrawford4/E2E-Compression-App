@@ -7,7 +7,7 @@
 #define RANDOM_FILE "random_file"
 
 void tcp_phase(unsigned int src_port, unsigned int dst_port, unsigned long host_addr,
-              unsigned int dst_addr, unsigned int ttl) 
+               unsigned int dst_addr, unsigned int ttl) 
 {
 
     int sockfd = init_socket(IPPROTO_TCP);
@@ -27,13 +27,9 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, unsigned long host_
     fill_ip_header(ip, sizeof(buffer), ttl, IPPROTO_TCP, host_addr, dst_addr);
     fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
-    ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
-                     sizeof(struct tcphdr));
-    tcp->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + 
-                     sizeof(struct tcphdr));
+    calculate_tcp_checksum(ip, tcp);
 
     send_tcp_pckt(buffer, ip->tot_len, sockfd, &sin);
-    //TODO: Maybe change for tailsyn
     close(sockfd);
 
 }
@@ -152,7 +148,10 @@ int main(int argc, char **argv) {
      }
 
     tcp_phase(tcp_src_port, hsyn_port, host_addr, dst_addr, ttl);
+    wait(5);
     udp_phase(udp_src_port, udp_dst_port, host_addr, dst_addr, ttl, n_pckts, pckt_len, false);
+    tcp_phase(tcp_src_port, tsyn_port, host_addr, dst_addr, ttl);
+    wait(5);
         
     return EXIT_SUCCESS;
 }
