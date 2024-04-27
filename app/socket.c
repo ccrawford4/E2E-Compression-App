@@ -181,7 +181,7 @@ void fill_ip_header(struct iphdr *ip, size_t size, unsigned int ttl, unsigned in
     ip->version = 4; // IPv4
     ip->ihl = 5;     // length of IP header in 32-bit words
     ip->tos = 0;     // Type of service
-    ip->tot_len = htons(size); // Total length
+    ip->tot_len = size; // Total length
     ip->id = htonl(rand()); // ID of the current packet
     ip->ttl = ttl;      // Time to live
     ip->frag_off = 0;   // No fragment

@@ -24,7 +24,9 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, unsigned long host_
     struct iphdr *ip = (struct iphdr *) buffer;
     struct tcphdr *tcp = (struct tcphdr *) (buffer + sizeof(struct iphdr));
 
-    fill_ip_header(ip, sizeof(buffer), ttl, IPPROTO_TCP, host_addr, dst_addr);
+    size_t tot_len = sizeof(struct iphdr) + sizeof(struct tcphdr);
+
+    fill_ip_header(ip, tot_len, ttl,IPPROTO_TCP, host_addr, dst_addr);
     fill_tcp_header(tcp, src_port, dst_port, TH_SYN);
 
     calculate_tcp_checksum(ip, tcp);
