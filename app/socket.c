@@ -28,24 +28,26 @@ void send_udp_pckts(char *buffer, size_t buffer_len, int sockfd, struct sockaddr
         handle_error(sockfd, "Error opening file");
      }
 
+     size_t offset = sizeof(struct iphdr) + sizeof(struct udphdr);
+
      for (int i = 0; i < n_pckts; i++) {
         if (h_entropy) {
             fseek(fp, 0, SEEK_SET);
-            size_t bytes_read = fread(buffer, 1, buffer_len, fp);
-            if (bytes_read < buffer_len) {
+            size_t bytes_read = fread(buffer + offset, 1, buffer_len - offset, fp);
+            if (bytes_read < buffer_len - offset) {
                 handle_error(sockfd, "Failed to read bytes from file");
             }
 
         }
         // Set the packet ID
-        buffer[0] = i & 0xFF;
-        buffer[1] = (i >> 8) & 0xFF;
+        *(buffer + offset) = i & 0xFF;
+        *(buffer + offset + 1) = (i >> 8) & 0xFF;
 
         ssize_t bytes_sent = sendto(sockfd, buffer, buffer_len, 0,
                                    (struct sockaddr *)sin, sizeof(struct sockaddr_in));
-       /* if (bytes_sent < 0) {
+        if (bytes_sent < 0) {
             handle_error(sockfd, "sendto()");
-        }*/
+        }
    }
 }
 
