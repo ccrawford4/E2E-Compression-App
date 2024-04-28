@@ -1,66 +1,70 @@
-#include "time.h"
+#include "headers/shared.h"
+#include "headers/socket.h"
+#include <stdlib.h>
 
 #define R 0.100
 #define MAX_BUFFER_LEN 1000
 
-bool calc_results(double time_one, double_time two) {
+bool found_compression(double time_one, double time_two) {
     double diff = abs(time_one - time_two);
     if (diff > R)
         return true;
     return false;
 }
 
-// send the head SYN
-// send the UDP
-// send the tail SYN
-// ... wait x seconds
-// if receive RST packet -> done
-double calc_stream_time(unsigned int m_time, 
-                        struct sockaddr_in server_addr, int sockfd) 
+
+double calc_stream_time(int sockfd, struct sockaddr_in *cliaddr, unsigned int m_time) 
 {
     char *buffer = (char*)malloc(MAX_BUFFER_LEN);
     if (buffer == NULL)
         handle_error(sockfd, "Memory allocation failure");
 
-    socklen_t = sizeof(server_addr);
-
     struct timeval timeout;
     timeout.tv_sec = m_time; // measurement time
     timeout.tv_usec = 0;     // No microseconds
 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RVTIMEO, &timeout, sizeof(timeout)) < 0)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
         handle_error(sockfd, "setsockopt()");
     
     struct timespec start_time, curr_time, end_time;
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
-    end_time = start_time; // Initalize end_time
 
     bool found_rst = false;
+    int n;
+    socklen_t len = sizeof(struct sockaddr_in);
+  
     while (true) {
         clock_gettime(CLOCK_MONOTONIC, &curr_time);
-        double elapsed = ((current_time.tv_sec - start_time.tv_sec) +
-                         (current_time.tv_nsec - start_time.tv_nsec)) / 
-                          1000000000.0;
-        if (elapsed >= m_time)
-            break;
+        double elapsed = (curr_time.tv_sec - start_time.tv_sec) + 
+                         (curr_time.tv_nsec - start_time.tv_nsec) / 1000000000.0;
+        n = recvfrom(sockfd, buffer, MAX_BUFFER_LEN - 1, 0, (struct sockaddr *)cliaddr,
+                     &len);
 
-        ssize_t n = recv(sockfd, buffer, MAX_BUFFER_LEN - 1, 0,
-                (struct sockaddr *)&server_addr, &len);
-        
-        if (n == -1) {
-            if (errno == ECONNRESET) {
-                end_time = curr_time;
-                found_rst = true;
-                break;
+        if (n > 0) {
+            struct iphdr *iph = (struct iphdr *)buffer;
+            struct tcphdr *tcph = (struct tcphdr *)(buffer + iph->ihl * 4);
+
+            // Check for TCP RST flag
+            if (tcph->rst) {
+                // If its the first RST packet
+                if (!found_rst) {
+                    clock_gettime(CLOCK_MONOTONIC, &start_time);
+                    found_rst = true;
+                } else {
+                    clock_gettime(CLOCK_MONOTONIC, &end_time);
+                    break;
+                }
             }
-            handle_error(sockfd, "recv()");
+        } else if (n < 0) {
+            handle_error(sockfd, "recvfrom()");
+        } else if (elapsed >= m_time) {
+            return -1;      // TIMEOUT Exceeded! The second RST was not found
         }
-         
-    }
+
+     }
+        
 
     double total_elapsed = ((end_time.tv_sec - start_time.tv_sec) + 
-                            (end_time.tv_nsec - start_time.tv_nsec)) /
-                            1000000000.0;
+                            (end_time.tv_nsec - start_time.tv_nsec)) / 1000000000.0;
 
      free(buffer);
 

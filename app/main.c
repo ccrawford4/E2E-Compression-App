@@ -9,105 +9,47 @@
 #define DEBUG 1
 
 struct recv_args {
-    int sockfd;
-    char *recvbuf;
-    size_t sizeof_recvbuf;
-    struct sockaddr_in *saddr;
+    int sockfd;                   // Socket file descriptor
+    struct sockaddr_in *saddr;    // Sender IP address configuration
+    unsigned int m_time;         // Measurement time
 };
 
 int run(void *arg) {
     struct recv_args *args = (struct recv_args *)arg;
 
     int sockfd = args->sockfd;
-    char *recvbuf = args->recvbuf;
-    size_t size = args->sizeof_recvbuf;
     struct sockaddr_in *saddr = args->saddr;
+    unsigned int m_time = args->m_time;
 
-    int bytes_recv = receive_from(sockfd, recvbuf, size, saddr);
+    double *stream_time = malloc(sizeof(double));
+    if (stream_time == NULL)
+        handle_error(sockfd, "Memory allocation");
+
     
-    return bytes_recv;
+    *stream_time = calc_stream_time(sockfd, saddr, m_time);    
+
+    return (intptr_t)stream_time;
 }
 
-void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *host_ip,
-               const char *server_ip, unsigned int ttl) 
-{
+void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) {
+   char *packet;
+   int pckt_len;
+   create_syn_packet(saddr, daddr, &packet, &pckt_len);
 
-    int sockfd = init_socket(SOCK_RAW);
-
-   // Destination IP address configuration
-   struct sockaddr_in daddr;
-   daddr.sin_family = AF_INET;
-   daddr.sin_port = htons(dst_port); // Destination port
-
-   if (inet_pton(AF_INET, server_ip, &daddr.sin_addr) != 1)
-   {
-        handle_error(sockfd, "inet_pton() - dest ip");
-   }
-
-   // Source IP address configuration
-   struct sockaddr_in saddr;
-   saddr.sin_family = AF_INET;
-   saddr.sin_port = htons(src_port);    // TCP Source Port
-
-   if (inet_pton(AF_INET, host_ip, &saddr.sin_addr) != 1)
-        handle_error(sockfd, "inet_pton() - host ip");
-
-   int one = 1;
-   const int *val = &one;
-   // Tell Kernel not to fill in header fields
-   if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1)
-       handle_error(sockfd, "setsockopt()");
-
-
-    char recvbuf[DATAGRAM_LEN];
-
-    thrd_t t; // t will hold the thread id
-    
-    // Create argument struct for the thread
-    struct recv_args *args = malloc(sizeof(struct recv_args));
-    if (args == NULL)
-        handle_error(sockfd, "memory allocation error");
-    
-    // Populate the args struct with the necessary parameters
-    args->sockfd = sockfd;
-    args->recvbuf = recvbuf;
-    args->sizeof_recvbuf = sizeof(recvbuf);
-    args->saddr = &saddr;
-    
-    // Create a thread to listen for RST packets
-    thrd_create(&t, run, args);
-
-    // Send SYN (confine to another function later
-    char *packet;
-    int pckt_len;
-    create_syn_packet(&saddr, &daddr, &packet, &pckt_len);
-   
-    int sent;
-    if ((sent = sendto(sockfd, packet, pckt_len, 0, (struct sockaddr*)&daddr, sizeof(struct sockaddr)) == -1))
-        handle_error(sockfd, "sendto()");
+   int sent;
+   if ((sent = sendto(sockfd, packet, pckt_len, 0, (struct sockaddr*)daddr,
+                     sizeof(struct sockaddr)) == -1))
+       handle_error(sockfd, "sendto()");
 
     #ifdef DEBUG
         printf("SYN Sent\n");
     #endif
-    
-    int recv_bytes;
-    thrd_join(t, &recv_bytes);
-
-    if (recv_bytes <= 0)
-        handle_error(sockfd, "recv()");
-    #ifdef DEBUG
-        printf("Succcessfully received %d bytes from RST: \n", recv_bytes);
-    #endif
-
-    // Close the socket
-    close(sockfd);
 }
 
 
 void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy)
  {
 
-    // CONSOLIDATE to another function (also clean up paramaters
     int sockfd;
      struct sockaddr_in addr;
      if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -131,8 +73,92 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
      // TODO: Fix it so it includes the TTL
      send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
      close(sockfd);
-
 }
+
+
+double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned int tsyn_port,
+                 char *hostip, const char *server_ip, int ttl, unsigned int udp_dst_port, 
+                 int n_pckts, int pckt_len, bool h_entropy) 
+{
+    // Create the RAW socket
+    int sockfd;
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
+        handle_error(sockfd, "socket()");
+
+    // Source IP address configurations
+    struct sockaddr_in saddr;
+    saddr.sin_family = AF_INET;
+    saddr.sin_port = htons(tcp_src_port);
+
+    if (inet_pton(AF_INET, hostip, &saddr.sin_addr) != 1)
+        handle_error(sockfd, "inet_pton()");
+    
+    // Destination IP address configurations for head SYN
+    struct sockaddr_in h_daddr;
+    h_daddr.sin_family = AF_INET;
+    h_daddr.sin_port = htons(hsyn_port);
+
+    if (inet_pton(AF_INET, server_ip, &h_daddr.sin_addr) != 1)
+        handle_error(sockfd, "inet_pton()");
+
+    // Destination IP address configurations for tail SYN
+    struct sockaddr_in t_daddr;
+    t_daddr.sin_family = AF_INET;
+    t_daddr.sin_port = htons(tsyn_port);
+
+    if (inet_pton(AF_INET, server_ip, &t_daddr.sin_addr) != 1)
+        handle_error(sockfd, "inet_pton()");
+
+    int one = 1;
+    const int *val = &one;
+    
+    // Tell Kernel not to fill in header fields
+    if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1)
+        handle_error(sockfd, "setsockopt()");
+
+   
+    char recvbuf[DATAGRAM_LEN];
+    thrd_t t; //t will hold the thread id
+
+    // Create argument struct for the thread
+    struct recv_args *args = malloc(sizeof(struct recv_args));
+    if (args == NULL)
+        handle_error(sockfd, "memory allocation error");
+
+    // Populate the args struct with necessary parameters
+    args->sockfd = sockfd;
+    args->saddr = &saddr;
+    args->m_time = 15;      // TODO: change to measurement time
+
+    // Create and start the thread to listen for RST packets
+    if (thrd_create(&t, run, args) != thrd_success) {
+        fprintf(stderr, "Failed to created thread\n");
+        return EXIT_FAILURE;
+    }
+
+
+    send_syn(sockfd, &saddr, &h_daddr);                                 // Send Head SYN
+    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);   // UDP Phase
+    send_syn(sockfd, &saddr, &t_daddr);                                 // Send Tail SYN
+
+    // Join thread and return the results
+    intptr_t result;
+    if (thrd_join(t, (int*)&result) != thrd_success) {
+        fprintf(stderr, "Failed to join thread\n");
+        return EXIT_FAILURE;
+    }
+
+    double stream_time = *(double *)(intptr_t)result;
+
+    #ifdef DEBUG
+        printf("Stream Time: %f\n", stream_time);
+    #endif
+
+    close(sockfd);
+
+    return stream_time;
+}
+
 
 int main(int argc, char **argv) {
     // 1. Send a single head SYN packet (port x)
@@ -202,15 +228,22 @@ int main(int argc, char **argv) {
 
     get_hostip(hostip);
 
-    tcp_phase(tcp_src_port, hsyn_port, hostip, server_ip, ttl);     // Head SYN
-    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, false);   // Low entropy
-    tcp_phase(tcp_src_port, tsyn_port, hostip, server_ip, ttl);     // Tail SYN
+    // Probe server with Low Entropy
+    double time1 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
+                udp_dst_port, n_pckts, pckt_len, false);
 
-    wait(15);
+    wait(15); // replace with server wait time
 
-    tcp_phase(tcp_src_port, hsyn_port, hostip, server_ip, ttl);       // Head SYN
-    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, true);    // High entropy
-    tcp_phase(tcp_src_port, tsyn_port, hostip, server_ip, ttl);     // Tail SYN
+     // Probe server with High Entropy
+    double time2 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
+                udp_dst_port, n_pckts, pckt_len, true);
+
+     bool detect_compression = found_compression(time1, time2);
+     if (detect_compression) {
+        printf("Compression Detected!\n");
+     } else {
+        printf("No Compression Detected!\n");
+     }
         
     return EXIT_SUCCESS;
 }
