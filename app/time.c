@@ -73,6 +73,7 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
           //  printf("Bytes received: %d\n", n);
         #endif
         if (n > 0) {
+            printf("Bytes received: %d\n", n);
             struct iphdr *iph = (struct iphdr *)buffer;
             struct tcphdr *tcph = (struct tcphdr *)(buffer + iph->ihl * 4);
 
@@ -81,11 +82,10 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
 
             char expected_ip[] = "192.168.80.4";
 
-           // printf("Source IP: %s\n", src_ip);
+            printf("Source IP: %s\n", src_ip);
 
             if (strcmp(src_ip, expected_ip) == 0) {
-
-                printf("   From: %s\n", inet_ntoa(*(struct in_addr *)&iph->saddr));
+                 printf("   From: %s\n", inet_ntoa(*(struct in_addr *)&iph->saddr));
                  printf("   To: %s\n", inet_ntoa(*(struct in_addr *)&iph->daddr));
                  printf("   Source Port: %u\n", ntohs(tcph->source));
                  printf("   Destination Port: %u\n", ntohs(tcph->dest));
