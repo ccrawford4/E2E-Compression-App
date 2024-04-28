@@ -8,15 +8,31 @@
 #define DATAGRAM_LEN 4096
 #define DEBUG 1
 
+struct recv_args {
+    int sockfd;
+    char *recvbuf;
+    size_t sizeof_recvbuf;
+    struct sockaddr_in *saddr;
+};
+
+int run(void *arg) {
+    struct recv_args *args = (struct recv_args *)arg;
+
+    int sockfd = args->sockfd;
+    char *recvbuf = args->recvbuf;
+    size_t size = args->sizeof_recvbuf;
+    struct sockaddr_in *saddr = args->saddr;
+
+    int bytes_recv = receive_from(sockfd, recvbuf, size, saddr);
+    
+    return bytes_recv;
+}
 
 void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *host_ip,
                const char *server_ip, unsigned int ttl) 
 {
 
-    int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
-    if (sockfd == -1) {
-        handle_error(sockfd, "socket()");
-    }
+    int sockfd = init_socket(SOCK_RAW);
 
    // Destination IP address configuration
    struct sockaddr_in daddr;
@@ -36,19 +52,36 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *host_ip
    if (inet_pton(AF_INET, host_ip, &saddr.sin_addr) != 1)
         handle_error(sockfd, "inet_pton() - host ip");
 
-    // confine into one function later (with socket() call)
    int one = 1;
    const int *val = &one;
+   // Tell Kernel not to fill in header fields
    if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1)
        handle_error(sockfd, "setsockopt()");
+
+
+    char recvbuf[DATAGRAM_LEN];
+
+    thrd_t t; // t will hold the thread id
+    
+    // Create argument struct for the thread
+    struct recv_args *args = malloc(sizeof(struct recv_args));
+    if (args == NULL)
+        handle_error(sockfd, "memory allocation error");
+    
+    // Populate the args struct with the necessary parameters
+    args->sockfd = sockfd;
+    args->recvbuf = recvbuf;
+    args->sizeof_recvbuf = sizeof(recvbuf);
+    args->saddr = &saddr;
+    
+    // Create a thread to listen for RST packets
+    thrd_create(&t, run, args);
 
     // Send SYN (confine to another function later
     char *packet;
     int pckt_len;
     create_syn_packet(&saddr, &daddr, &packet, &pckt_len);
-    
-
-
+   
     int sent;
     if ((sent = sendto(sockfd, packet, pckt_len, 0, (struct sockaddr*)&daddr, sizeof(struct sockaddr)) == -1))
         handle_error(sockfd, "sendto()");
@@ -56,15 +89,14 @@ void tcp_phase(unsigned int src_port, unsigned int dst_port, const char *host_ip
     #ifdef DEBUG
         printf("SYN Sent\n");
     #endif
+    
+    int recv_bytes;
+    thrd_join(t, &recv_bytes);
 
-    // Receive RST (consolidate to another function
-    char recvbuf[DATAGRAM_LEN];
-    int received = receive_from(sockfd, recvbuf, sizeof(recvbuf), &saddr);
-
-    if (received <= 0)
+    if (recv_bytes <= 0)
         handle_error(sockfd, "recv()");
     #ifdef DEBUG
-        printf("Succcessfully received RST!\n");
+        printf("Succcessfully received %d bytes from RST: \n", recv_bytes);
     #endif
 
     // Close the socket

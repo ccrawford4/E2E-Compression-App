@@ -211,3 +211,10 @@ void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
   fclose(fp);
   free(payload);
 }
+
+int init_socket(int type) {
+   int sockfd;
+   if ((sockfd = socket(AF_INET, type, IPPROTO_TCP)) < 0)
+       handle_error(sockfd, "socket()");
+   return sockfd;
+}
