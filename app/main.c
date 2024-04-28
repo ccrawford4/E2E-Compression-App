@@ -14,7 +14,7 @@ struct recv_args {
     unsigned int m_time;         // Measurement time
 };
 
-int run(void *arg) {
+void *rst_liste(void *arg) {
     struct recv_args *args = (struct recv_args *)arg;
 
     int sockfd = args->sockfd;
@@ -24,9 +24,12 @@ int run(void *arg) {
     double *stream_time = malloc(sizeof(double));
     if (stream_time == NULL)
         handle_error(sockfd, "Memory allocation");
-
     
-    *stream_time = calc_stream_time(sockfd, saddr, m_time);    
+    printf("IN stream...\n");
+    
+    *stream_time = calc_stream_time(sockfd, saddr, m_time);   
+
+    printf("Calculated stream time: %f\n", *stream_time);
 
     return (intptr_t)stream_time;
 }
@@ -128,18 +131,20 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     // Populate the args struct with necessary parameters
     args->sockfd = sockfd;
     args->saddr = &saddr;
-    args->m_time = 15;      // TODO: change to measurement time
+    args->m_time = 5;      // TODO: change to measurement time
 
     // Create and start the thread to listen for RST packets
+    printf("Starting thread\n");
     if (thrd_create(&t, run, args) != thrd_success) {
         fprintf(stderr, "Failed to created thread\n");
         return EXIT_FAILURE;
     }
-
+    printf("Thread started, sending SYN packets\n");
 
     send_syn(sockfd, &saddr, &h_daddr);                                 // Send Head SYN
     udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);   // UDP Phase
     send_syn(sockfd, &saddr, &t_daddr);                                 // Send Tail SYN
+    wait(5);
 
     // Join thread and return the results
     intptr_t result;

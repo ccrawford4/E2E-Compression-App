@@ -3,18 +3,6 @@
 
 #define MAX_KEY_LEN 100
 
-void print_time(struct timespec current_time) {
-   struct tm *time_info;
-   char buffer[80];
-
-   clock_gettime(CLOCK_REALTIME, &current_time);
-   time_info = localtime(&current_time.tv_sec);
-
-   strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", time_info);
-
-   printf("Current Time: %s.%09ld\n", buffer, current_time.tv_nsec);
-}
-
 void handle_error(int sockfd, char* error_msg) {
     perror(error_msg);
     close(sockfd);
