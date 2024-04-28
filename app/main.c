@@ -10,29 +10,23 @@
 
 struct recv_args {
     int sockfd;                   // Socket file descriptor
-    struct sockaddr_in *saddr;    // Sender IP address configuration
+    struct sockaddr_in *h_saddr;    // Head SYN IP address configuration
+    struct sockaddr_in *t_saddr;    // Tail SYN IP address configuration
     unsigned int m_time;         // Measurement time
 };
 
-void *rst_liste(void *arg) {
-    struct recv_args *args = (struct recv_args *)arg;
+struct send_args {
+    int sockfd;                   // Socket file descriptor
+    struct sockaddr_in *saddr;    // Sender IP address configuration
+    struct sockaddr_in *h_daddr;  // Head SYN destination address
+    struct sockaddr_in *t_daddr;  // Tail SYN destination address
+    const char *server_ip;       // Server_IP for UDP
+    unsigned int udp_dst_port;    // Dest port for UDP
+    int n_pckts;                  // Number of packets in stream
+    int pckt_len;                 // Size of payload
+    bool h_entropy;               // High entropy or not
+};
 
-    int sockfd = args->sockfd;
-    struct sockaddr_in *saddr = args->saddr;
-    unsigned int m_time = args->m_time;
-
-    double *stream_time = malloc(sizeof(double));
-    if (stream_time == NULL)
-        handle_error(sockfd, "Memory allocation");
-    
-    printf("IN stream...\n");
-    
-    *stream_time = calc_stream_time(sockfd, saddr, m_time);   
-
-    printf("Calculated stream time: %f\n", *stream_time);
-
-    return (intptr_t)stream_time;
-}
 
 void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) {
    char *packet;
@@ -48,7 +42,6 @@ void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) 
         printf("SYN Sent\n");
     #endif
 }
-
 
 void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy)
  {
@@ -78,6 +71,46 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
      close(sockfd);
 }
 
+int send_packets(void *arg) {
+    struct send_args *args = (struct send_args *)arg;
+    int sockfd = args->sockfd;
+    struct sockaddr_in *saddr = args->saddr;
+    struct sockaddr_in *h_daddr = args->h_daddr;
+    struct sockaddr_in *t_daddr = args->t_daddr;
+    const char *server_ip = args->server_ip;
+    unsigned int udp_dst_port = args->udp_dst_port;
+    int n_pckts = args->n_pckts;
+    int pckt_len = args->pckt_len;
+    bool h_entropy = args->h_entropy;
+
+    send_syn(sockfd, saddr, h_daddr);
+    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
+    send_syn(sockfd, saddr, t_daddr);
+
+    return 1; // indicate success
+}
+
+int recv_rst(void *arg) {
+    struct recv_args *args = (struct recv_args *)arg;
+
+    int sockfd = args->sockfd;
+    struct sockaddr_in *h_saddr = args->h_saddr;
+    struct sockaddr_in *t_saddr = args->t_saddr;
+    unsigned int m_time = args->m_time;
+
+    double *stream_time = malloc(sizeof(double));
+    if (stream_time == NULL)
+        handle_error(sockfd, "Memory allocation");
+    
+    printf("IN stream...\n");
+    
+    *stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
+
+    printf("Calculated stream time: %f\n", *stream_time);
+
+    return (intptr_t)stream_time;
+}
+
 
 double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned int tsyn_port,
                  char *hostip, const char *server_ip, int ttl, unsigned int udp_dst_port, 
@@ -85,8 +118,9 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 {
     // Create the RAW socket
     int sockfd;
-    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
         handle_error(sockfd, "socket()");
+
 
     // Source IP address configurations
     struct sockaddr_in saddr;
@@ -118,10 +152,9 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     // Tell Kernel not to fill in header fields
     if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1)
         handle_error(sockfd, "setsockopt()");
-
    
     char recvbuf[DATAGRAM_LEN];
-    thrd_t t; //t will hold the thread id
+    thrd_t t0; //t will hold the thread id
 
     // Create argument struct for the thread
     struct recv_args *args = malloc(sizeof(struct recv_args));
@@ -130,28 +163,55 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 
     // Populate the args struct with necessary parameters
     args->sockfd = sockfd;
-    args->saddr = &saddr;
+    args->h_saddr = &h_daddr;
+    args->t_saddr = &t_daddr;
     args->m_time = 5;      // TODO: change to measurement time
 
     // Create and start the thread to listen for RST packets
-    printf("Starting thread\n");
-    if (thrd_create(&t, run, args) != thrd_success) {
+    printf("Starting recv thread\n");
+    if (thrd_create(&t0, recv_rst, args) != thrd_success) {
         fprintf(stderr, "Failed to created thread\n");
         return EXIT_FAILURE;
     }
-    printf("Thread started, sending SYN packets\n");
+    printf("Created recv thread\n");
+    
+    struct send_args *s_args = malloc(sizeof(struct send_args));
+    if (s_args == NULL)
+        handle_error(sockfd, "memory allocation error");
 
-    send_syn(sockfd, &saddr, &h_daddr);                                 // Send Head SYN
-    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);   // UDP Phase
-    send_syn(sockfd, &saddr, &t_daddr);                                 // Send Tail SYN
+    s_args->sockfd = sockfd;
+    s_args->saddr = &saddr;
+    s_args->h_daddr = &h_daddr;
+    s_args->t_daddr = &t_daddr;
+    s_args->server_ip = server_ip;
+    s_args->udp_dst_port = udp_dst_port;
+    s_args->n_pckts = n_pckts;
+    s_args->pckt_len = pckt_len;
+    s_args->h_entropy = h_entropy;
+
+    printf("Starting send thread\n");
+    thrd_t t1;
+    if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
+        fprintf(stderr, "Failed to create thread\n");
+        return EXIT_FAILURE;
+    }
+    printf("Created send thread\n");
     wait(5);
 
     // Join thread and return the results
     intptr_t result;
-    if (thrd_join(t, (int*)&result) != thrd_success) {
+    if (thrd_join(t0, (int*)&result) != thrd_success) {
         fprintf(stderr, "Failed to join thread\n");
         return EXIT_FAILURE;
     }
+
+    int sres;
+    if (thrd_join(t1, (int*)&sres) != thrd_success) {
+        fprintf(stderr, "Failed to join thread\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("Joining all threads\n");
 
     double stream_time = *(double *)(intptr_t)result;
 

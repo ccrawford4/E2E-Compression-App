@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #define R 0.100
 #define MAX_BUFFER_LEN 1000
@@ -29,7 +30,7 @@ void print_time(struct timespec current_time) {
     printf("Current Time: %s.%09ld\n", buffer, current_time.tv_nsec);
 }
 
-double calc_stream_time(int sockfd, struct sockaddr_in *cliaddr, unsigned int m_time) 
+double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr_in *t_saddr, unsigned int m_time) 
 {
     char buffer[DATAGRAM_LEN];
     size_t buffer_len = sizeof(buffer);
@@ -37,22 +38,34 @@ double calc_stream_time(int sockfd, struct sockaddr_in *cliaddr, unsigned int m_
     struct timeval timeout;
     timeout.tv_sec = m_time; // measurement time
     timeout.tv_usec = 0;     // No microseconds
-
-   /* if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
-        handle_error(sockfd, "setsockopt()");*/
     
-    struct timespec start_time, curr_time, end_time;
+    struct timespec timer_start, start_time, curr_time, end_time;
 
     bool found_rst = false;
     int n;
-      
-   // while (true) {
+
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    if (flags == -1)
+        handle_error(sockfd, "fcntl get");
+
+    flags = (flags | O_NONBLOCK);
+    if (fcntl(sockfd, F_SETFL, flags) == -1)
+        handle_error(sockfd, "fcntl set");
+
+    clock_gettime(CLOCK_MONOTONIC, &timer_start);
+
+    socklen_t saddr_len = sizeof(struct sockaddr_in);
+    while (true) {
         clock_gettime(CLOCK_MONOTONIC, &curr_time);
-        double elapsed = (curr_time.tv_sec - start_time.tv_sec) + 
-                         (curr_time.tv_nsec - start_time.tv_nsec) / 1000000000.0;
+        double elapsed = (curr_time.tv_sec - timer_start.tv_sec) + 
+                        (curr_time.tv_nsec - timer_start.tv_nsec) / 1000000000.0;
         printf("recvfrom()");
-        n = recvfrom(sockfd, buffer, buffer_len, 0, NULL, NULL);
-        printf("after recvfrom()");
+        if (found_rst) {
+            n = recvfrom(sockfd, buffer, buffer_len, 0, (struct sockaddr*)t_saddr, &saddr_len);
+        } else {
+            n = recvfrom(sockfd, buffer, buffer_len, 0, (struct sockaddr*)h_saddr, &saddr_len);
+        }
+
         
         #ifdef DEBUG
             print_time(curr_time);
@@ -78,11 +91,13 @@ double calc_stream_time(int sockfd, struct sockaddr_in *cliaddr, unsigned int m_
         } else if (n < 0) {
             perror("recvfrom()");
         }
+        // reset the buffer
+        memset(buffer, 0, sizeof(buffer));
 
         if (elapsed >= m_time) {
             return -1;
         }
-   //  }
+     }
         
     double total_elapsed = ((end_time.tv_sec - start_time.tv_sec) + 
                             (end_time.tv_nsec - start_time.tv_nsec)) / 1000000000.0;
