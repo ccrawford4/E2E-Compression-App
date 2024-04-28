@@ -2,11 +2,12 @@
 #include "headers/socket.h"
 #include "headers/shared.h"
 #include "headers/json.h"
+#include <time.h>
 
 #define ERROR "ERROR"
 #define RANDOM_FILE "random_file"
 #define DATAGRAM_LEN 4096
-#define DEBUG 1
+#define DEBUG 0
 
 struct recv_args {
     int sockfd;                   // Socket file descriptor
@@ -37,9 +38,10 @@ void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) 
    if ((sent = sendto(sockfd, packet, pckt_len, 0, (struct sockaddr*)daddr,
                      sizeof(struct sockaddr)) == -1))
        handle_error(sockfd, "sendto()");
-
+        
+        printf("SYN Bytes sent: %d\n", sent);
     #ifdef DEBUG
-        printf("SYN Sent\n");
+       // printf("SYN Sent\n");
     #endif
 }
 
@@ -59,16 +61,9 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
 
       if (inet_pton(AF_INET, dst_ip, &addr.sin_addr) != 1)
           handle_error(sockfd, "inet_pton()");
- 
-      int optval = 1;
-      if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) <
-          0) {
-          handle_error(sockfd, "setsockopt()");
-      }
 
      // TODO: Fix it so it includes the TTL
      send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
-     close(sockfd);
 }
 
 int send_packets(void *arg) {
@@ -83,9 +78,15 @@ int send_packets(void *arg) {
     int pckt_len = args->pckt_len;
     bool h_entropy = args->h_entropy;
 
+    struct timespec curr_time;
+    clock_gettime(CLOCK_MONOTONIC, &curr_time);
+    printf("Time when sending packets\n");
+    print_time(curr_time);
+    
     send_syn(sockfd, saddr, h_daddr);
     udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
     send_syn(sockfd, saddr, t_daddr);
+    printf("Sent all syn\n");
 
     return 1; // indicate success
 }
@@ -102,7 +103,7 @@ int recv_rst(void *arg) {
     if (stream_time == NULL)
         handle_error(sockfd, "Memory allocation");
     
-    printf("IN stream...\n");
+  //  printf("IN stream...\n");
     
     *stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
 
@@ -121,6 +122,8 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
         handle_error(sockfd, "socket()");
 
+    printf("Head SYN port before setting: %d\n", hsyn_port);
+    printf("Tail SYN port after setting: %d\n", tsyn_port);
 
     // Source IP address configurations
     struct sockaddr_in saddr;
@@ -146,6 +149,9 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     if (inet_pton(AF_INET, server_ip, &t_daddr.sin_addr) != 1)
         handle_error(sockfd, "inet_pton()");
 
+    printf("Head SYN port after setting: %d\n", ntohs(h_daddr.sin_port));
+    printf("Tail SYN port after setting: %d\n", ntohs(t_daddr.sin_port));
+
     int one = 1;
     const int *val = &one;
     
@@ -165,7 +171,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     args->sockfd = sockfd;
     args->h_saddr = &h_daddr;
     args->t_saddr = &t_daddr;
-    args->m_time = 5;      // TODO: change to measurement time
+    args->m_time = 10;      // TODO: change to measurement time
 
     // Create and start the thread to listen for RST packets
     printf("Starting recv thread\n");
@@ -191,12 +197,12 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 
     printf("Starting send thread\n");
     thrd_t t1;
+   // wait(1);
     if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
         fprintf(stderr, "Failed to create thread\n");
         return EXIT_FAILURE;
     }
     printf("Created send thread\n");
-    wait(5);
 
     // Join thread and return the results
     intptr_t result;
@@ -216,7 +222,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     double stream_time = *(double *)(intptr_t)result;
 
     #ifdef DEBUG
-        printf("Stream Time: %f\n", stream_time);
+       // printf("Stream Time: %f\n", stream_time);
     #endif
 
     close(sockfd);

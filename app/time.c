@@ -27,7 +27,7 @@ void print_time(struct timespec current_time) {
 
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", time_info);
 
-    printf("Current Time: %s.%09ld\n", buffer, current_time.tv_nsec);
+    printf(": %s.%09ld\n", buffer, current_time.tv_nsec);
 }
 
 double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr_in *t_saddr, unsigned int m_time) 
@@ -55,11 +55,12 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
     clock_gettime(CLOCK_MONOTONIC, &timer_start);
 
     socklen_t saddr_len = sizeof(struct sockaddr_in);
+    printf("Time starting to receive packets: \n");
+    print_time(timer_start);
     while (true) {
         clock_gettime(CLOCK_MONOTONIC, &curr_time);
         double elapsed = (curr_time.tv_sec - timer_start.tv_sec) + 
                         (curr_time.tv_nsec - timer_start.tv_nsec) / 1000000000.0;
-        printf("recvfrom()");
         if (found_rst) {
             n = recvfrom(sockfd, buffer, buffer_len, 0, (struct sockaddr*)t_saddr, &saddr_len);
         } else {
@@ -68,12 +69,27 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
 
         
         #ifdef DEBUG
-            print_time(curr_time);
-            printf("Bytes received: %d\n", n);
+          //  print_time(curr_time);
+          //  printf("Bytes received: %d\n", n);
         #endif
         if (n > 0) {
             struct iphdr *iph = (struct iphdr *)buffer;
             struct tcphdr *tcph = (struct tcphdr *)(buffer + iph->ihl * 4);
+
+            char src_ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(iph->saddr), src_ip, INET_ADDRSTRLEN);
+
+            char expected_ip[] = "192.168.80.4";
+
+           // printf("Source IP: %s\n", src_ip);
+
+            if (strcmp(src_ip, expected_ip) == 0) {
+
+                printf("   From: %s\n", inet_ntoa(*(struct in_addr *)&iph->saddr));
+                 printf("   To: %s\n", inet_ntoa(*(struct in_addr *)&iph->daddr));
+                 printf("   Source Port: %u\n", ntohs(tcph->source));
+                 printf("   Destination Port: %u\n", ntohs(tcph->dest));
+            }
 
             // Check for TCP RST flag
             if (tcph->rst) {
@@ -87,7 +103,7 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
                 }
             }
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            printf("No data available yet\n");
+          //  printf("No data available yet\n");
         } else if (n < 0) {
             perror("recvfrom()");
         }

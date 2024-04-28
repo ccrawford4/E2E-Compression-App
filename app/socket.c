@@ -168,6 +168,7 @@ void get_hostip(char *host) {
 void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
                       int server_port, int packet_size, int num_packets,
                       bool h_entropy) {
+  packet_size = 100;
   char *payload = (char *)malloc(packet_size);
   if (payload == NULL) {
     perror("Memory allocation failed\n");
@@ -204,10 +205,14 @@ void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
                (struct sockaddr *)server_addr, sizeof(struct sockaddr_in));
     if (bytes_sent < 0) {
       perror("sendto()");
+      fclose(fp);
+      free(payload);
+      close(sockfd);
       exit(EXIT_FAILURE);
     }
   }
-
+  printf("UDP phase over. Closing socket\n");
+  close(sockfd);
   fclose(fp);
   free(payload);
 }
