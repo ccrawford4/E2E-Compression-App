@@ -168,12 +168,19 @@ void get_hostip(char *host) {
 void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
                       int server_port, int packet_size, int num_packets,
                       bool h_entropy) {
-  packet_size = 100;
+
   char *payload = (char *)malloc(packet_size);
   if (payload == NULL) {
     perror("Memory allocation failed\n");
     abort();
   }
+
+  int buf_size = 1024 * 1024 * 4; // Set buffer size to 4MB
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buf_size, sizeof(buf_size)) < 0) {
+        perror("setsockopt SO_SNDBUF");
+        exit(EXIT_FAILURE);
+    }
+
   memset(payload, 0, packet_size);
 
   FILE *fp = fopen(RANDOM_FILE, "rb");
@@ -182,6 +189,7 @@ void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
     printf("Error Opening File %s\n", RANDOM_FILE);
     exit(EXIT_FAILURE);
   }
+
 
   // Send the packets
   for (int i = 0; i < num_packets; i++) {
@@ -211,6 +219,7 @@ void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
       exit(EXIT_FAILURE);
     }
   }
+
   printf("UDP phase over. Closing socket\n");
   close(sockfd);
   fclose(fp);

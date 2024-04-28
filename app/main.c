@@ -85,6 +85,7 @@ int send_packets(void *arg) {
     
     send_syn(sockfd, saddr, h_daddr);
     udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
+    usleep(500);
     send_syn(sockfd, saddr, t_daddr);
     printf("Sent all syn\n");
 
@@ -119,7 +120,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 {
     // Create the RAW socket
     int sockfd;
-    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
         handle_error(sockfd, "socket()");
 
     printf("Head SYN port before setting: %d\n", hsyn_port);
@@ -197,8 +198,8 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 
     printf("Starting send thread\n");
     thrd_t t1;
-   // wait(1);
-    if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
+
+ if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
         fprintf(stderr, "Failed to create thread\n");
         return EXIT_FAILURE;
     }
