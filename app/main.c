@@ -77,18 +77,16 @@ int send_packets(void *arg) {
 
     struct timespec curr_time;
     clock_gettime(CLOCK_MONOTONIC, &curr_time);
-    printf("Time when sending packets\n");
-    print_time(curr_time);
     
     send_syn(sockfd, saddr, daddr);
     udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
     daddr->sin_port = htons(tsyn_port);
     send_syn(sockfd, saddr, daddr);
-    printf("Sent all syn\n");
 
     return 1; // indicate success
 }
 
+// Thread function responsible for receiving the TCP RST packets
 int recv_rst(void *arg) {
     struct recv_args *args = (struct recv_args *)arg;
 
@@ -96,16 +94,8 @@ int recv_rst(void *arg) {
     struct sockaddr_in *h_saddr = args->h_saddr;
     struct sockaddr_in *t_saddr = args->t_saddr;
     unsigned int m_time = args->m_time;
-
-    double *stream_time = malloc(sizeof(double));
-    if (stream_time == NULL)
-        handle_error(sockfd, "Memory allocation");
-    
-    printf("IN stream...\n");
-    
+        
     args->stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
-
-    printf("Calculated stream time: %f\n", args->stream_time);
 
     return 1; // Indicate success
 }
@@ -113,10 +103,8 @@ int recv_rst(void *arg) {
 
 double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned int tsyn_port,
                  char *hostip, const char *server_ip, int ttl, unsigned int udp_dst_port, 
-                 int n_pckts, int pckt_len, bool h_entropy) 
+                 int n_pckts, int pckt_len, bool h_entropy, unsigned short timeout) 
 {
-    // Create the RAW socket
-    // change to recvfrom()
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
         handle_error(sockfd, "socket()");
@@ -164,15 +152,12 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     args->sockfd = sockfd;
     args->h_saddr = &h_daddr;
     args->t_saddr = &t_daddr;
-    args->m_time = 5;      // TODO: change to measurement time
+    args->m_time = timeout;
 
-    // Create and start the thread to listen for RST packets
-    printf("Starting recv thread\n");
     if (thrd_create(&t0, recv_rst, args) != thrd_success) {
         fprintf(stderr, "Failed to created thread\n");
         return EXIT_FAILURE;
     }
-    printf("Created recv thread\n");
     
     struct send_args *s_args = malloc(sizeof(struct send_args));
     if (s_args == NULL)
@@ -188,17 +173,14 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     s_args->pckt_len = pckt_len;
     s_args->h_entropy = h_entropy;
 
-    printf("Starting send thread\n");
     thrd_t t1;
 
- if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
+   if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
         fprintf(stderr, "Failed to create thread\n");
         return EXIT_FAILURE;
     }
-    printf("Created send thread\n");
 
     int res;
-    // Join thread and return the results
     intptr_t return_value;
     if (thrd_join(t0, &res) != thrd_success) {
         fprintf(stderr, "Failed to join thread\n");
@@ -210,33 +192,15 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
         fprintf(stderr, "Failed to join thread\n");
         return EXIT_FAILURE;
     }
-
-    printf("Joining all threads\n");        
-
+     
     double ret_val = args->stream_time;
-    #ifdef DEBUG
-      printf("Stream Time: %f\n", ret_val);
-    #endif
-
     close(sockfd);
 
     return ret_val;
 }
 
 
-int main(int argc, char **argv) {
-    // 1. Send a single head SYN packet (port x)
-    // 2. Send n UDP packets
-    // 3. Send a single tail SYN packet (port y)
-    // SYN should trigger RST packets
-
-    // Listen for RST packets
-
-    // RST1 - RST2 -> will determine comperssion
-
-    // If the RST packet is loss (use a timer) -> 
-    // output: "Failed to detect due to insufficent information"
-    
+int main(int argc, char **argv) {    
     if (argc != 2) {
         printf("usage: \n");
         printf("./compdetect <file_name>.json>\n");
@@ -251,6 +215,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    unsigned short timeout = (unsigned short)atoi(get_value(config_file, "RST_timeout"));
     unsigned int hsyn_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
     unsigned int tsyn_port = (unsigned int)atoi(get_value(config_file, "TCP_TAILSYN_dest_port_number"));
     unsigned tcp_src_port = (unsigned int)atoi(get_value(config_file, "TCP_PREPROB_port_number"));
@@ -294,13 +259,18 @@ int main(int argc, char **argv) {
 
     // Probe server with Low Entropy
     double time1 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
-                udp_dst_port, n_pckts, pckt_len, false);
+                udp_dst_port, n_pckts, pckt_len, false, timeout);
 
-    wait(15); // replace with server wait time
+    wait(m_time);
 
      // Probe server with High Entropy
     double time2 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
-                udp_dst_port, n_pckts, pckt_len, true);
+                udp_dst_port, n_pckts, pckt_len, true, timeout);
+
+    if (time1 == -1 || time2 == -1) {
+        printf("Failed to detect due to insufficent information\n");
+        return EXIT_FAILURE;
+    }   
 
      bool detect_compression = found_compression(time1, time2);
      if (detect_compression) {

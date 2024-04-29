@@ -55,9 +55,9 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
     clock_gettime(CLOCK_MONOTONIC, &timer_start);
 
     socklen_t saddr_len = sizeof(struct sockaddr_in);
-    printf("Time starting to receive packets: \n");
-    print_time(timer_start);
-    while (true) {
+
+
+     while (true) {
         clock_gettime(CLOCK_MONOTONIC, &curr_time);
         double elapsed = (curr_time.tv_sec - timer_start.tv_sec) + 
                         (curr_time.tv_nsec - timer_start.tv_nsec) / 1000000000.0;
@@ -67,50 +67,12 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
             n = recvfrom(sockfd, buffer, buffer_len, 0, (struct sockaddr*)h_saddr, &saddr_len);
         }
 
-        
-        #ifdef DEBUG
-          //  print_time(curr_time);
-          //  printf("Bytes received: %d\n", n);
-        #endif
         if (n > 0) {
             struct iphdr *iph = (struct iphdr *)buffer;
             struct tcphdr *tcph = (struct tcphdr *)(buffer + iph->ihl * 4);
 
-            char src_ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &(iph->saddr), src_ip, INET_ADDRSTRLEN);
-
-            char expected_ip[] = "192.168.80.4";
-
-            if (strcmp(src_ip, expected_ip) == 0) {
-                 printf("   From: %s\n", inet_ntoa(*(struct in_addr *)&iph->saddr));
-                 printf("   To: %s\n", inet_ntoa(*(struct in_addr *)&iph->daddr));
-                 printf("   Source Port: %u\n", ntohs(tcph->source));
-                 printf("   Destination Port: %u\n", ntohs(tcph->dest));
-                 // Print IP header information
-                  printf("   IP Header Length: %d bytes\n", iph->ihl * 4);
-                  printf("   IP Total Length: %u bytes\n", ntohs(iph->tot_len));
-                  printf("   Protocol: %d\n", iph->protocol);
-
-                  // Print TCP flags
-                   printf("   TCP Flags: [ ");
-                   if (tcph->syn) printf("SYN ");
-                   if (tcph->ack) printf("ACK ");
-                   if (tcph->psh) printf("PSH ");
-                   if (tcph->rst) printf("RST ");
-                   if (tcph->fin) printf("FIN ");
-                   if (tcph->urg) printf("URG ");
-                    printf("]\n");
-
-                    // Print sequence and acknowledgment numbers
-                   printf("   Sequence Number: %u\n", ntohl(tcph->seq));
-                    printf("   Acknowledgment Number: %u\n", ntohl(tcph->ack_seq));
-                 
-             }
-
             // Check for TCP RST flag
             if (tcph->rst) {
-                printf("Found RST!\n");
-                // If its the first RST packet
                 if (!found_rst) {
                     clock_gettime(CLOCK_MONOTONIC, &start_time);
                     found_rst = true;
@@ -118,12 +80,15 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
                     clock_gettime(CLOCK_MONOTONIC, &end_time);
                     break;
                 }
-            }
-        } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-          //  printf("No data available yet\n");
-        } else if (n < 0) {
+           }
+
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+
             perror("recvfrom()");
         }
+
         // reset the buffer
         memset(buffer, 0, sizeof(buffer));
 

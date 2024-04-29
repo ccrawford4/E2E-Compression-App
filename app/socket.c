@@ -122,23 +122,6 @@ void create_syn_packet(struct sockaddr_in* src, struct sockaddr_in* dst, char** 
 	free(pseudogram);
 }
 
-int receive_from(int sock, char* buffer, size_t buffer_length, struct sockaddr_in *dst)
-{
-	unsigned short dst_port;
-	int received;
-	do
-	{
-		received = recvfrom(sock, buffer, buffer_length, 0, NULL, NULL);
-		if (received < 0)
-			break;
-		memcpy(&dst_port, buffer + 22, sizeof(dst_port));
-	}
-	while (dst_port != dst->sin_port);
-	printf("received bytes: %d\n", received);
-	printf("destination port: %d\n", ntohs(dst->sin_port));
-	return received;
-}
-
 void get_hostip(char *host) {
     struct ifaddrs *ifaddr, *ifa;
     int family;
@@ -165,6 +148,7 @@ void get_hostip(char *host) {
 }
 
 // Sends UDP packets
+// TODO: set TTL for UDP packets
 void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
                       int server_port, int packet_size, int num_packets,
                       bool h_entropy) {
@@ -220,7 +204,6 @@ void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
     }
   }
 
-  printf("UDP phase over. Closing socket\n");
   close(sockfd);
   fclose(fp);
   free(payload);
