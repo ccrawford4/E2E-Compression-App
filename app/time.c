@@ -86,17 +86,37 @@ double calc_stream_time(int sockfd, struct sockaddr_in *h_saddr, struct sockaddr
                  printf("   To: %s\n", inet_ntoa(*(struct in_addr *)&iph->daddr));
                  printf("   Source Port: %u\n", ntohs(tcph->source));
                  printf("   Destination Port: %u\n", ntohs(tcph->dest));
-            }
+                 // Print IP header information
+                  printf("   IP Header Length: %d bytes\n", iph->ihl * 4);
+                  printf("   IP Total Length: %u bytes\n", ntohs(iph->tot_len));
+                  printf("   Protocol: %d\n", iph->protocol);
+
+                  // Print TCP flags
+                   printf("   TCP Flags: [ ");
+                   if (tcph->syn) printf("SYN ");
+                   if (tcph->ack) printf("ACK ");
+                   if (tcph->psh) printf("PSH ");
+                   if (tcph->rst) printf("RST ");
+                   if (tcph->fin) printf("FIN ");
+                   if (tcph->urg) printf("URG ");
+                    printf("]\n");
+
+                    // Print sequence and acknowledgment numbers
+                   printf("   Sequence Number: %u\n", ntohl(tcph->seq));
+                    printf("   Acknowledgment Number: %u\n", ntohl(tcph->ack_seq));
+                 
+             }
 
             // Check for TCP RST flag
             if (tcph->rst) {
+                printf("Found RST!\n");
                 // If its the first RST packet
                 if (!found_rst) {
                     clock_gettime(CLOCK_MONOTONIC, &start_time);
                     found_rst = true;
                 } else {
                     clock_gettime(CLOCK_MONOTONIC, &end_time);
-                  //  break;
+                    break;
                 }
             }
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
