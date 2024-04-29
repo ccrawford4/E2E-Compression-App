@@ -19,9 +19,9 @@ struct recv_args {
 struct send_args {
     int sockfd;                   // Socket file descriptor
     struct sockaddr_in *saddr;    // Sender IP address configuration
-    struct sockaddr_in *h_daddr;  // Head SYN destination address
-    struct sockaddr_in *t_daddr;  // Tail SYN destination address
-    const char *server_ip;       // Server_IP for UDP
+    struct sockaddr_in *daddr;    // SYN destination address (includes Head SYN port)
+    unsigned int tsyn_port;       // Tail SYN port
+    const char *server_ip;        // Server_IP for UDP
     unsigned int udp_dst_port;    // Dest port for UDP
     int n_pckts;                  // Number of packets in stream
     int pckt_len;                 // Size of payload
@@ -70,8 +70,8 @@ int send_packets(void *arg) {
     struct send_args *args = (struct send_args *)arg;
     int sockfd = args->sockfd;
     struct sockaddr_in *saddr = args->saddr;
-    struct sockaddr_in *h_daddr = args->h_daddr;
-    struct sockaddr_in *t_daddr = args->t_daddr;
+    struct sockaddr_in *daddr = args->daddr;
+    unsigned int tsyn_port = args->tsyn_port;
     const char *server_ip = args->server_ip;
     unsigned int udp_dst_port = args->udp_dst_port;
     int n_pckts = args->n_pckts;
@@ -83,10 +83,10 @@ int send_packets(void *arg) {
     printf("Time when sending packets\n");
     print_time(curr_time);
     
-    send_syn(sockfd, saddr, h_daddr);
+    send_syn(sockfd, saddr, daddr);
     udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
-    h_daddr->sin_port = htons(8888);
-    send_syn(sockfd, saddr, h_daddr);
+    daddr->sin_port = htons(tsyn_port);
+    send_syn(sockfd, saddr, daddr);
     printf("Sent all syn\n");
 
     return 1; // indicate success
@@ -183,8 +183,8 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 
     s_args->sockfd = sockfd;
     s_args->saddr = &saddr;
-    s_args->h_daddr = &h_daddr;
-    s_args->t_daddr = &t_daddr;
+    s_args->daddr = &h_daddr;
+    s_args->tsyn_port = tsyn_port;
     s_args->server_ip = server_ip;
     s_args->udp_dst_port = udp_dst_port;
     s_args->n_pckts = n_pckts;
