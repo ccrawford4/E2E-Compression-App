@@ -84,8 +84,9 @@ int send_packets(void *arg) {
     print_time(curr_time);
     
     send_syn(sockfd, saddr, h_daddr);
-    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy); 
-    send_syn(sockfd, saddr, t_daddr);
+    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
+    h_daddr->sin_port = htons(8888);
+    send_syn(sockfd, saddr, h_daddr);
     printf("Sent all syn\n");
 
     return 1; // indicate success
@@ -118,8 +119,9 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
                  int n_pckts, int pckt_len, bool h_entropy) 
 {
     // Create the RAW socket
+    // change to recvfrom()
     int sockfd;
-    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
         handle_error(sockfd, "socket()");
 
     // Source IP address configurations
@@ -165,7 +167,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     args->sockfd = sockfd;
     args->h_saddr = &h_daddr;
     args->t_saddr = &t_daddr;
-    args->m_time = 10;      // TODO: change to measurement time
+    args->m_time = 5;      // TODO: change to measurement time
 
     // Create and start the thread to listen for RST packets
     printf("Starting recv thread\n");
@@ -192,7 +194,6 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     printf("Starting send thread\n");
     thrd_t t1;
 
- wait(2);
  if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
         fprintf(stderr, "Failed to create thread\n");
         return EXIT_FAILURE;
