@@ -10,10 +10,11 @@
 #define DEBUG 0
 
 struct recv_args {
-    int sockfd;                   // Socket file descriptor
+    int sockfd;                     // Socket file descriptor
     struct sockaddr_in *h_saddr;    // Head SYN IP address configuration
     struct sockaddr_in *t_saddr;    // Tail SYN IP address configuration
-    unsigned int m_time;         // Measurement time
+    unsigned int m_time;            // Measurement time
+    double stream_time;            // Stream time (where the result will be stored)
 };
 
 struct send_args {
@@ -26,6 +27,7 @@ struct send_args {
     int n_pckts;                  // Number of packets in stream
     int pckt_len;                 // Size of payload
     bool h_entropy;               // High entropy or not
+
 };
 
 
@@ -38,11 +40,6 @@ void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) 
    if ((sent = sendto(sockfd, packet, pckt_len, 0, (struct sockaddr*)daddr,
                      sizeof(struct sockaddr)) == -1))
        handle_error(sockfd, "sendto()");
-        
-        printf("SYN Bytes sent: %d\n", sent);
-    #ifdef DEBUG
-       // printf("SYN Sent\n");
-    #endif
 }
 
 void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy)
@@ -106,11 +103,11 @@ int recv_rst(void *arg) {
     
     printf("IN stream...\n");
     
-    *stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
+    args->stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
 
-    printf("Calculated stream time: %f\n", *stream_time);
+    printf("Calculated stream time: %f\n", args->stream_time);
 
-    return (intptr_t)stream_time;
+    return 1; // Indicate success
 }
 
 
@@ -200,30 +197,30 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     }
     printf("Created send thread\n");
 
+    int res;
     // Join thread and return the results
-    intptr_t result;
-    if (thrd_join(t0, (int*)&result) != thrd_success) {
+    intptr_t return_value;
+    if (thrd_join(t0, &res) != thrd_success) {
         fprintf(stderr, "Failed to join thread\n");
         return EXIT_FAILURE;
     }
 
     int sres;
-    if (thrd_join(t1, (int*)&sres) != thrd_success) {
+    if (thrd_join(t1, &sres) != thrd_success) {
         fprintf(stderr, "Failed to join thread\n");
         return EXIT_FAILURE;
     }
 
-    printf("Joining all threads\n");
+    printf("Joining all threads\n");        
 
-    double stream_time = *(double *)(intptr_t)result;
-
+    double ret_val = args->stream_time;
     #ifdef DEBUG
-       // printf("Stream Time: %f\n", stream_time);
+      printf("Stream Time: %f\n", ret_val);
     #endif
 
     close(sockfd);
 
-    return stream_time;
+    return ret_val;
 }
 
 
