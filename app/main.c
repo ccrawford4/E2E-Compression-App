@@ -27,9 +27,8 @@ struct send_args {
     int n_pckts;                  // Number of packets in stream
     int pckt_len;                 // Size of payload
     bool h_entropy;               // High entropy or not
-
+    int ttl;                      // TTL
 };
-
 
 void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) {
    char *packet;
@@ -42,7 +41,7 @@ void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) 
        handle_error(sockfd, "sendto()");
 }
 
-void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy)
+void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy, int ttl)
  {
 
     int sockfd;
@@ -51,6 +50,11 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
       perror("socket()");
       exit(EXIT_FAILURE);
      }
+
+     if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
+        handle_error(sockfd, "setsockopt()");
+     }
+
      // DESTINATION ADDR
       memset(&addr, 0, sizeof(addr));
       addr.sin_family = AF_INET;
@@ -61,6 +65,7 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
 
      // TODO: Fix it so it includes the TTL
      send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
+     close(sockfd);
 }
 
 int send_packets(void *arg) {
@@ -74,12 +79,13 @@ int send_packets(void *arg) {
     int n_pckts = args->n_pckts;
     int pckt_len = args->pckt_len;
     bool h_entropy = args->h_entropy;
+    int ttl = args->ttl;
 
     struct timespec curr_time;
     clock_gettime(CLOCK_MONOTONIC, &curr_time);
     
     send_syn(sockfd, saddr, daddr);
-    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy);
+    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy, ttl);
     daddr->sin_port = htons(tsyn_port);
     send_syn(sockfd, saddr, daddr);
 
@@ -172,6 +178,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     s_args->n_pckts = n_pckts;
     s_args->pckt_len = pckt_len;
     s_args->h_entropy = h_entropy;
+    s_args->ttl = ttl;
 
     thrd_t t1;
 

@@ -148,7 +148,6 @@ void get_hostip(char *host) {
 }
 
 // Sends UDP packets
-// TODO: set TTL for UDP packets
 void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
                       int server_port, int packet_size, int num_packets,
                       bool h_entropy) {
@@ -204,7 +203,6 @@ void send_udp_packets(int sockfd, struct sockaddr_in *server_addr,
     }
   }
 
-  close(sockfd);
   fclose(fp);
   free(payload);
 }
