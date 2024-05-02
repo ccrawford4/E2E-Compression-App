@@ -3,7 +3,7 @@
 SCRIPT_PATH="$(realpath "$0")"
 
 if [ ! -x "$SCRIPT_PATH" ]; then
-  chmod +x "$SCRIPT_PATH"
+    chmod +x "$SCRIPT_PATH"
 fi
 
 cd json-api
@@ -13,4 +13,3 @@ cd json-api
 make
 
 make install
-
