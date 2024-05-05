@@ -86,24 +86,28 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
 
 // Threaded function called to send the TCP/UDP packets while another thread is listening for RST
 int send_packets(void *arg) {
-    struct send_args *args = (struct send_args *)arg;   
-    int sockfd = args->sockfd;
-    struct sockaddr_in *saddr = args->saddr;
-    struct sockaddr_in *daddr = args->daddr;
-    unsigned int tsyn_port = args->tsyn_port;
-    const char *server_ip = args->server_ip;
-    unsigned int udp_dst_port = args->udp_dst_port;
-    int n_pckts = args->n_pckts;
-    int pckt_len = args->pckt_len;
-    bool h_entropy = args->h_entropy;
-    int ttl = args->ttl;
-
-    struct timespec curr_time;
-    clock_gettime(CLOCK_MONOTONIC, &curr_time);
+    struct send_args *args = (struct send_args *)arg;       // Send_args struct 
+    int sockfd = args->sockfd;                              // Socket file descriptor
+    struct sockaddr_in *saddr = args->saddr;                // Source IP address config
+    struct sockaddr_in *daddr = args->daddr;                // Destination IP address config
+    unsigned int tsyn_port = args->tsyn_port;               // Tail SYN port
+    const char *server_ip = args->server_ip;                // Server IP address
+    unsigned int udp_dst_port = args->udp_dst_port;         // UDP destination port
+    int n_pckts = args->n_pckts;                            // Number of packets for UDP stream
+    int pckt_len = args->pckt_len;                          // UDP packet length
+    bool h_entropy = args->h_entropy;                       // High entropy or not boolean for UDP
+    int ttl = args->ttl;                                    // UDP TTL value
     
+    // Send the HEAD SYN packet
     send_syn(sockfd, saddr, daddr);
+
+    // Send the UDP stream
     udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy, ttl);
+
+    // Set the destination port to the TAIL SYN port (it will be the HEAD by default so this is crucial)
     daddr->sin_port = htons(tsyn_port);
+
+    // Send the TAIL SYN
     send_syn(sockfd, saddr, daddr);
 
     return 1; // indicate success
@@ -112,7 +116,6 @@ int send_packets(void *arg) {
 // Thread function responsible for receiving the TCP RST packets
 int recv_rst(void *arg) {
     struct recv_args *args = (struct recv_args *)arg;
-
     int sockfd = args->sockfd;
     struct sockaddr_in *h_saddr = args->h_saddr;
     struct sockaddr_in *t_saddr = args->t_saddr;
