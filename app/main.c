@@ -73,7 +73,6 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
       if (inet_pton(AF_INET, dst_ip, &addr.sin_addr) != 1)
           handle_error(sockfd, "inet_pton()");
 
-     // TODO: Fix it so it includes the TTL
      send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
      close(sockfd);
 }
@@ -127,11 +126,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 
     // Source IP address configurations
     struct sockaddr_in saddr;
-    saddr.sin_family = AF_INET;
-    saddr.sin_port = htons(tcp_src_port);
-
-    if (inet_pton(AF_INET, hostip, &saddr.sin_addr) != 1)
-        handle_error(sockfd, "inet_pton()");
+    fill_ipstruct(&saddr, tcp_src_port, hostip);
     
     // Destination IP address configurations for head SYN
     struct sockaddr_in h_daddr;
