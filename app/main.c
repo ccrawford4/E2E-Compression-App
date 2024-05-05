@@ -326,9 +326,9 @@ int main(int argc, char **argv) {
     // Compare the times to check if compression occcured and then print out the result
      bool detect_compression = found_compression(time1, time2);
      if (detect_compression) {
-        printf("Compression Detected!\n");
+        printf("\nCompression Detected!\n");
      } else {
-        printf("No Compression Detected!\n");
+        printf("\nNo Compression Detected!\n");
      }
         
     return EXIT_SUCCESS;
