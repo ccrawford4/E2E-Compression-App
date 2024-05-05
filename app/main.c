@@ -30,6 +30,19 @@ struct send_args {
     int ttl;                       // TTL
 };
 
+void fill_sargs(struct send_args *sargs, int sockfd, struct sockaddr_in *saddr,
+               struct sockaddr_in *daddr, unsigned int tsyn_port, const char
+               *server_ip, unsigned int udp_dst_port, int n_pckts, int pckt_len,
+               bool h_entropy, int ttl) 
+{
+    sargs->sockfd = sockfd;
+    sargs->saddr = saddr;
+    sargs->daddr = daddr;
+    sargs->tsyn_port = tsyn_port;
+    sargs->
+
+}
+
 // Fill the IP config struct assuming we are using IPv4
 void fill_ipstruct(struct sockaddr_in *addr, int port, char *ip_address) {
   memset(&addr, 0, sizeof(addr));              // Clear out the struct
@@ -128,11 +141,12 @@ int recv_rst(void *arg) {
     return 1; // Indicate success
 }
 
-
+// Probe phase responsible for setting up the threaded functions for sending and receiving data
 double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned int tsyn_port,
                  char *hostip, const char *server_ip, int ttl, unsigned int udp_dst_port, 
                  int n_pckts, int pckt_len, bool h_entropy, unsigned short timeout) 
 {
+    // Create a TCP socket
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
         handle_error(sockfd, "socket()");
@@ -143,19 +157,11 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     
     // Destination IP address configurations for head SYN
     struct sockaddr_in h_daddr;
-    h_daddr.sin_family = AF_INET;
-    h_daddr.sin_port = htons(hsyn_port);
-
-    if (inet_pton(AF_INET, server_ip, &h_daddr.sin_addr) != 1)
-        handle_error(sockfd, "inet_pton()");
+    fill_ipstruct(&h_daddr, hsyn_port, server_ip);
 
     // Destination IP address configurations for tail SYN
     struct sockaddr_in t_daddr;
-    t_daddr.sin_family = AF_INET;
-    t_daddr.sin_port = htons(tsyn_port);
-
-    if (inet_pton(AF_INET, server_ip, &t_daddr.sin_addr) != 1)
-        handle_error(sockfd, "inet_pton()");
+    fill_ipstruct(&t_daddr, tsyn_port, server_ip);
 
     int one = 1;
     const int *val = &one;
@@ -165,7 +171,7 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
         handle_error(sockfd, "setsockopt()");
    
     char recvbuf[DATAGRAM_LEN];
-    thrd_t t0; //t will hold the thread id
+    thrd_t t0;                  // t will hold the thread id
 
     // Create argument struct for the thread
     struct recv_args *args = malloc(sizeof(struct recv_args));
