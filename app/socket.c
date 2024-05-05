@@ -2,11 +2,10 @@
 #include "headers/socket.h"
 #include "headers/shared.h"
 
-#define PCKT_LEN 8192
-#define BUF_SIZE 8193
-#define UDP_PROTO 17
+#define DATAGRAM_LEN 4096
+#define OPT_SIZE 20
+
 #define RANDOM_FILE "random_file"
-#define DEBUG 1
 
 
 // pseudo header needed for tcp header checksum calculation
@@ -19,9 +18,8 @@ struct pseudo_header
 	u_int16_t tcp_length;
 };
 
-#define DATAGRAM_LEN 4096
-#define OPT_SIZE 20
 
+// Checksum function for TCP
 unsigned short checksum(const char *buf, unsigned size)
 {
 	unsigned sum = 0, i;
@@ -47,6 +45,7 @@ unsigned short checksum(const char *buf, unsigned size)
 	return ~sum;
 }
 
+// Create a SYN packet
 void create_syn_packet(struct sockaddr_in* src, struct sockaddr_in* dst, char** out_packet, int* out_packet_len)
 {
 	// datagram to represent the packet
@@ -62,7 +61,7 @@ void create_syn_packet(struct sockaddr_in* src, struct sockaddr_in* dst, char** 
 	iph->version = 4;
 	iph->tos = 0;
 	iph->tot_len = sizeof(struct iphdr) + sizeof(struct tcphdr) + OPT_SIZE;
-	iph->id = htonl(rand() % 65535); // id of this packet
+	iph->id = htonl(rand() % 65535); // id of this packet will be random
 	iph->frag_off = 0;
 	iph->ttl = 64;
 	iph->protocol = IPPROTO_TCP;
@@ -122,6 +121,7 @@ void create_syn_packet(struct sockaddr_in* src, struct sockaddr_in* dst, char** 
 	free(pseudogram);
 }
 
+// Find and save the hosts IP address into the host parameter
 void get_hostip(char *host) {
     struct ifaddrs *ifaddr, *ifa;
     int family;
