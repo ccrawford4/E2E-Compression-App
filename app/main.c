@@ -30,6 +30,7 @@ struct send_args {
     int ttl;                       // TTL
 };
 
+// Fills a send args struct given some parameters
 void fill_sargs(struct send_args *sargs, int sockfd, struct sockaddr_in *saddr,
                struct sockaddr_in *daddr, unsigned int tsyn_port, const char
                *server_ip, unsigned int udp_dst_port, int n_pckts, int pckt_len,
@@ -39,9 +40,25 @@ void fill_sargs(struct send_args *sargs, int sockfd, struct sockaddr_in *saddr,
     sargs->saddr = saddr;
     sargs->daddr = daddr;
     sargs->tsyn_port = tsyn_port;
-    sargs->
+    sargs->server_ip = server_ip;
+    sargs->udp_dst_port = udp_dst_port;
+    sargs->n_pckts = n_pckts;
+    sargs->pckt_len = pckt_len;
+    sargs->h_entropy = h_entropy;
+    sargs->ttl = ttl;
 
 }
+
+// Fills a receive args struct given some parameters
+void fill_rargs(struct recv_args *rargs, int sockfd, struct sockaddr_in *h_saddr,
+                struct sockaddr_in *t_saddr, unsigned int m_time) 
+{
+    rargs->sockfd = sockfd;
+    rargs->h_saddr = h_saddr;
+    rargs->t_saddr = t_saddr;
+    rargs->m_time = m_time;
+}
+
 
 // Fill the IP config struct assuming we are using IPv4
 void fill_ipstruct(struct sockaddr_in *addr, int port, char *ip_address) {
@@ -88,7 +105,7 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
 
      // Create and fill the Destination IP address configuration
      struct sockaddr_in addr;
-     fill_ipstruct(&addr, port, dst_ip);
+     fill_ipstruct(&addr, port, (char*)dst_ip);
 
      // Sends the UDP packet stream
      send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
@@ -157,11 +174,11 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     
     // Destination IP address configurations for head SYN
     struct sockaddr_in h_daddr;
-    fill_ipstruct(&h_daddr, hsyn_port, server_ip);
+    fill_ipstruct(&h_daddr, hsyn_port, (char*)server_ip);
 
     // Destination IP address configurations for tail SYN
     struct sockaddr_in t_daddr;
-    fill_ipstruct(&t_daddr, tsyn_port, server_ip);
+    fill_ipstruct(&t_daddr, tsyn_port, (char*)server_ip);
 
     int one = 1;
     const int *val = &one;
@@ -170,47 +187,38 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1)
         handle_error(sockfd, "setsockopt()");
    
-    char recvbuf[DATAGRAM_LEN];
-    thrd_t t0;                  // t will hold the thread id
-
     // Create argument struct for the thread
     struct recv_args *args = malloc(sizeof(struct recv_args));
     if (args == NULL)
         handle_error(sockfd, "memory allocation error");
 
-    // Populate the args struct with necessary parameters
-    args->sockfd = sockfd;
-    args->h_saddr = &h_daddr;
-    args->t_saddr = &t_daddr;
-    args->m_time = timeout;
+    // Fill the receive args struct
+    fill_rargs(args, sockfd, &h_daddr, &t_daddr, timeout);
 
+    // Create a new thread to receive the RST packets
+    thrd_t t0;
     if (thrd_create(&t0, recv_rst, args) != thrd_success) {
         fprintf(stderr, "Failed to created thread\n");
         return EXIT_FAILURE;
     }
     
+    // Create the send struct for the thread 
     struct send_args *s_args = malloc(sizeof(struct send_args));
     if (s_args == NULL)
         handle_error(sockfd, "memory allocation error");
 
-    s_args->sockfd = sockfd;
-    s_args->saddr = &saddr;
-    s_args->daddr = &h_daddr;
-    s_args->tsyn_port = tsyn_port;
-    s_args->server_ip = server_ip;
-    s_args->udp_dst_port = udp_dst_port;
-    s_args->n_pckts = n_pckts;
-    s_args->pckt_len = pckt_len;
-    s_args->h_entropy = h_entropy;
-    s_args->ttl = ttl;
+    // Fill the send args struct
+    fill_sargs(s_args, sockfd, &saddr, &h_daddr, tsyn_port, server_ip,
+              udp_dst_port, n_pckts, pckt_len, h_entropy, ttl);
 
-    thrd_t t1;
-
+   // Start the second thread to start sending TCP/UDP packets
+   thrd_t t1;
    if (thrd_create(&t1, send_packets, s_args) != thrd_success) {
         fprintf(stderr, "Failed to create thread\n");
         return EXIT_FAILURE;
     }
 
+    // Join the receiving thread
     int res;
     intptr_t return_value;
     if (thrd_join(t0, &res) != thrd_success) {
@@ -218,12 +226,14 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
         return EXIT_FAILURE;
     }
 
+    // Join the sending thread
     int sres;
     if (thrd_join(t1, &sres) != thrd_success) {
         fprintf(stderr, "Failed to join thread\n");
         return EXIT_FAILURE;
     }
      
+    // Get the stream time from the args passed into the recv thread
     double ret_val = args->stream_time;
     close(sockfd);
 
