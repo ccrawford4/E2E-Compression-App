@@ -8,6 +8,7 @@
 #define RANDOM_FILE "random_file"
 #define DATAGRAM_LEN 4096
 #define DEBUG 0
+#define TEST 0
 
 struct recv_args {
     int sockfd;                     // Socket file descriptor
