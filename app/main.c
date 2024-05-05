@@ -165,8 +165,6 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
                  char *hostip, const char *server_ip, int ttl, unsigned int udp_dst_port, 
                  int n_pckts, int pckt_len, bool h_entropy, unsigned short timeout) 
 {
-
-    printf("no error yet on line 169\n");
     // Create a TCP socket
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
@@ -187,7 +185,6 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     int one = 1;
     const int *val = &one;
    
-     printf("no error yet on line 190\n");
     // Tell Kernel not to fill in header fields
     if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1)
         handle_error(sockfd, "setsockopt()");
@@ -200,7 +197,6 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
     // Fill the receive args struct
     fill_rargs(args, sockfd, &h_daddr, &t_daddr, timeout);
 
-   printf("no error yet on line 203\n");
     // Create a new thread to receive the RST packets
     thrd_t t0;
     if (thrd_create(&t0, recv_rst, args) != thrd_success) {
@@ -308,12 +304,9 @@ int main(int argc, char **argv) {
     // Get the hosts IP address
     get_hostip(hostip);
  
-    printf("no error yet on line 307\n");
     // Probe server with TCP head SYN, low Entropy UDP, and then TCP tail SYN
     double time1 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
                 udp_dst_port, n_pckts, pckt_len, false, timeout);
-
-    printf("no error yet on line 311\n");
 
     // Wait to ensure that the packet streams don't interfere with each other
     // Can adjust this value by changing the 'measurement_time' field in the config
