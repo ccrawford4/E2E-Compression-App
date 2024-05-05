@@ -18,16 +18,16 @@ struct recv_args {
 };
 
 struct send_args {
-    int sockfd;                   // Socket file descriptor
-    struct sockaddr_in *saddr;    // Sender IP address configuration
-    struct sockaddr_in *daddr;    // SYN destination address (includes Head SYN port)
-    unsigned int tsyn_port;       // Tail SYN port
-    const char *server_ip;        // Server_IP for UDP
-    unsigned int udp_dst_port;    // Dest port for UDP
-    int n_pckts;                  // Number of packets in stream
-    int pckt_len;                 // Size of payload
-    bool h_entropy;               // High entropy or not
-    int ttl;                      // TTL
+    int sockfd;                    // Socket file descriptor
+    struct sockaddr_in *saddr;     // Sender IP address configuration
+    struct sockaddr_in *daddr;     // SYN destination address (includes Head SYN port)
+    unsigned int tsyn_port;        // Tail SYN port
+    const char *server_ip;         // Server_IP for UDP
+    unsigned int udp_dst_port;     // Dest port for UDP
+    int n_pckts;                   // Number of packets in stream
+    int pckt_len;                  // Size of payload
+    bool h_entropy;                // High entropy or not
+    int ttl;                       // TTL
 };
 
 void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) {
