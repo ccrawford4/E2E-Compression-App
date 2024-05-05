@@ -115,12 +115,14 @@ int send_packets(void *arg) {
 
 // Thread function responsible for receiving the TCP RST packets
 int recv_rst(void *arg) {
-    struct recv_args *args = (struct recv_args *)arg;
-    int sockfd = args->sockfd;
-    struct sockaddr_in *h_saddr = args->h_saddr;
-    struct sockaddr_in *t_saddr = args->t_saddr;
-    unsigned int m_time = args->m_time;
+    struct recv_args *args = (struct recv_args *)arg;      // Receive args struct
+    int sockfd = args->sockfd;                             // Socket file descriptor
+    struct sockaddr_in *h_saddr = args->h_saddr;           // HEAD RST source address config
+    struct sockaddr_in *t_saddr = args->t_saddr;           // TAIL RST source address config
+    unsigned int m_time = args->m_time;                    // Timeout to stop listening in case no RST is found
         
+    // Store the stream time calculated by the difference between the two RSTs
+    // This value will be a double which is why we store it as one of the structs fields instead of returning it
     args->stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
 
     return 1; // Indicate success
