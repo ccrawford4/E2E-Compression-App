@@ -8,13 +8,12 @@
 #define RANDOM_FILE "random_file"
 #define DATAGRAM_LEN 4096
 #define DEBUG 0
-#define TEST 0
 
 struct recv_args {
-    int sockfd;                     // Socket file descriptor
-    struct sockaddr_in *h_saddr;    // Head SYN IP address configuration
-    struct sockaddr_in *t_saddr;    // Tail SYN IP address configuration
-    unsigned int m_time;            // Measurement time
+    int sockfd;                    // Socket file descriptor
+    struct sockaddr_in *h_saddr;   // Head SYN IP address configuration
+    struct sockaddr_in *t_saddr;   // Tail SYN IP address configuration
+    unsigned int m_time;           // Measurement time
     double stream_time;            // Stream time (where the result will be stored)
 };
 
