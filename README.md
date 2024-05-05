@@ -54,17 +54,17 @@ $ cd app
 ```bash
 $ cd ..
 ```
-7. Start the program by running the run.sh script
+7. Start the program by running the run.sh script. This script requires sudo privlidges in order to take advantage ofthe raw socket programming necessary for this application.
 ```bash
 # Make sure to include the name of your JSON config file 
 # located in the 'app' directory for the 
 # second command line argument
 
 # Usage: 
-# ./run.sh client <config file name>.json
+# sudo ./run.sh <config file name>.json
 
 # Example:
-$ ./run.sh client myconfig.json
+$ sudo ./run.sh myconfig.json
 ```
 ### Result
 The client will print out the results like so:
