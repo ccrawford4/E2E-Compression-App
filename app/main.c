@@ -30,6 +30,16 @@ struct send_args {
     int ttl;                       // TTL
 };
 
+// Fill the IP config struct assuming we are using IPv4
+void fill_ipstruct(struct sockaddr_in *addr, int port, char *ip_address) {
+  addr->sin_family = AF_INET;
+  addr->sin_port = htons(port);
+
+  if (inet_pton(AF_INET, ip_address, &(addr->sin_addr)) != 1)
+     printf("ERROR! Failed to set IP_address\n");
+     exit(EXIT_FAILURE);
+}
+
 void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) {
    char *packet;
    int pckt_len;
