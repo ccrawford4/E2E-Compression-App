@@ -116,17 +116,19 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
 
 // Threaded function called to send the TCP/UDP packets while another thread is listening for RST
 int send_packets(void *arg) {
-    struct send_args *args = (struct send_args *)arg;       // Send_args struct 
-    int sockfd = args->sockfd;                              // Socket file descriptor
-    struct sockaddr_in *saddr = args->saddr;                // Source IP address config
-    struct sockaddr_in *daddr = args->daddr;                // Destination IP address config
-    unsigned int tsyn_port = args->tsyn_port;               // Tail SYN port
-    const char *server_ip = args->server_ip;                // Server IP address
-    unsigned int udp_dst_port = args->udp_dst_port;         // UDP destination port
-    int n_pckts = args->n_pckts;                            // Number of packets for UDP stream
-    int pckt_len = args->pckt_len;                          // UDP packet length
-    bool h_entropy = args->h_entropy;                       // High entropy or not boolean for UDP
-    int ttl = args->ttl;                                    // UDP TTL value
+    struct send_args *args = (struct send_args *)arg;  // Get the send_args struct from the parameter
+
+    // Unpack the send_args struct pointer to get the necessary values
+    int sockfd = args->sockfd;                              
+    struct sockaddr_in *saddr = args->saddr;                
+    struct sockaddr_in *daddr = args->daddr;                
+    unsigned int tsyn_port = args->tsyn_port;               
+    const char *server_ip = args->server_ip;                
+    unsigned int udp_dst_port = args->udp_dst_port;         
+    int n_pckts = args->n_pckts;                            
+    int pckt_len = args->pckt_len;                          
+    bool h_entropy = args->h_entropy;                       
+    int ttl = args->ttl;                                   
     
     // Send the HEAD SYN packet
     send_syn(sockfd, saddr, daddr);
@@ -145,12 +147,12 @@ int send_packets(void *arg) {
 
 // Thread function responsible for receiving the TCP RST packets
 int recv_rst(void *arg) {
-    struct recv_args *args = (struct recv_args *)arg;      // Receive args struct
-    int sockfd = args->sockfd;                             // Socket file descriptor
-    struct sockaddr_in *h_saddr = args->h_saddr;           // HEAD RST source address config
-    struct sockaddr_in *t_saddr = args->t_saddr;           // TAIL RST source address config
-    unsigned int m_time = args->m_time;                    // Timeout to stop listening in case no RST is found
-        
+    struct recv_args *args = (struct recv_args *)arg;      
+    int sockfd = args->sockfd;                             
+    struct sockaddr_in *h_saddr = args->h_saddr;           
+    struct sockaddr_in *t_saddr = args->t_saddr;           
+    unsigned int m_time = args->m_time;                    
+
     // Store the stream time calculated by the difference between the two RSTs
     // This value will be a double which is why we store it as one of the structs fields instead of returning it
     args->stream_time = calc_stream_time(sockfd, h_saddr, t_saddr, m_time);   
@@ -241,21 +243,24 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
 }
 
 
-int main(int argc, char **argv) {    
+int main(int argc, char **argv) { 
+    // Ensure the user enters the command line arguments correctly
     if (argc != 2) {
         printf("usage: \n");
         printf("./compdetect <file_name>.json>\n");
         return EXIT_FAILURE;
     }
 
-    char* config_file = argv[1];
-    
+    char* config_file = argv[1];      // Config file name
+
+    // Get the server IP address from the config
     const char* server_ip = get_value(config_file, "server_ip");
     if (!strcmp(server_ip, ERROR)) {
         printf("ERROR! You must enter a server IP address in the %s file", argv[1]);
         return EXIT_FAILURE;
     }
 
+    // Get all the necessary values from the config value using the Jansson API from the 'get_value' function
     unsigned short timeout = (unsigned short)atoi(get_value(config_file, "RST_timeout"));
     unsigned int hsyn_port = (unsigned int)atoi(get_value(config_file, "TCP_HEADSYN_dest_port_number"));
     unsigned int tsyn_port = (unsigned int)atoi(get_value(config_file, "TCP_TAILSYN_dest_port_number"));
@@ -270,6 +275,7 @@ int main(int argc, char **argv) {
     *(payload_str + idx) = '\0';        // Remove the 'B' from the Payload String
     unsigned int pckt_len = (unsigned int)atoi(payload_str);
 
+    // Handle errors if the config is not formatted correctly or the key called is incorrect
     if (hsyn_port == 0) 
         handle_key_error("TCP_HEADSYN_dest_port_number", config_file);
     if (tsyn_port == 0)
@@ -289,30 +295,35 @@ int main(int argc, char **argv) {
     if (pckt_len == 0)
         handle_key_error("UDP_payload_size", config_file);
 
-
     char *hostip = (char*)malloc(NI_MAXHOST);
     if (hostip == NULL) {
         printf("Memory allocation error\n");
         return EXIT_FAILURE;
     }
-
+    
+    // Get the hosts IP address
     get_hostip(hostip);
 
-    // Probe server with Low Entropy
+    // Probe server with TCP head SYN, low Entropy UDP, and then TCP tail SYN
     double time1 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
                 udp_dst_port, n_pckts, pckt_len, false, timeout);
 
+    // Wait to ensure that the packet streams don't interfere with each other
+    // Can adjust this value by changing the 'measurement_time' field in the config
     wait(m_time);
 
-     // Probe server with High Entropy
+     // Probe server with TCP head SYN, high entropy UDP, and then TCP tail SYN
     double time2 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
                 udp_dst_port, n_pckts, pckt_len, true, timeout);
 
+    // The probe_server() function will return -1 if the timeout occured
+    // If either of the probing phases could not find two RST packets then print the error
     if (time1 == -1 || time2 == -1) {
         printf("Failed to detect due to insufficent information\n");
         return EXIT_FAILURE;
     }   
 
+    // Compare the times to check if compression occcured and then print out the result
      bool detect_compression = found_compression(time1, time2);
      if (detect_compression) {
         printf("Compression Detected!\n");
