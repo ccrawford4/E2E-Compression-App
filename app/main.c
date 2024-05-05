@@ -32,53 +32,61 @@ struct send_args {
 
 // Fill the IP config struct assuming we are using IPv4
 void fill_ipstruct(struct sockaddr_in *addr, int port, char *ip_address) {
-  addr->sin_family = AF_INET;
-  addr->sin_port = htons(port);
+  memset(&addr, 0, sizeof(addr));              // Clear out the struct
+  addr->sin_family = AF_INET;                  // Using IPv4
+  addr->sin_port = htons(port);                // Set the port
 
+  // Convert the IP address to binary
   if (inet_pton(AF_INET, ip_address, &(addr->sin_addr)) != 1)
      printf("ERROR! Failed to set IP_address\n");
      exit(EXIT_FAILURE);
 }
 
+// Sends a TCP SYN packet given a socket, and source/destination IP configs
 void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) {
    char *packet;
    int pckt_len;
+
+   // Fill the IP/TCP headers and create the SYN packet
    create_syn_packet(saddr, daddr, &packet, &pckt_len);
 
+   // Send the SYN packet
    int sent;
    if ((sent = sendto(sockfd, packet, pckt_len, 0, (struct sockaddr*)daddr,
                      sizeof(struct sockaddr)) == -1))
        handle_error(sockfd, "sendto()");
 }
 
+// Handles the UDP phase by creating the socket and sending the datagram
 void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy, int ttl)
  {
 
-    int sockfd;
-     struct sockaddr_in addr;
+     // Create a UDP socket
+     int sockfd;
      if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
       perror("socket()");
       exit(EXIT_FAILURE);
      }
 
+     // Set the TTL value for the UDP packets - should be provided by the config file
      if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
         handle_error(sockfd, "setsockopt()");
      }
 
-     // DESTINATION ADDR
-      memset(&addr, 0, sizeof(addr));
-      addr.sin_family = AF_INET;
-      addr.sin_port = htons(port);
+     // Create and fill the Destination IP address configuration
+     struct sockaddr_in addr;
+     fill_ipstruct(&addr, port, dst_ip);
 
-      if (inet_pton(AF_INET, dst_ip, &addr.sin_addr) != 1)
-          handle_error(sockfd, "inet_pton()");
-
+     // Sends the UDP packet stream
      send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
+
+     // Close the socket after use
      close(sockfd);
 }
 
+// Threaded function called to send the TCP/UDP packets while another thread is listening for RST
 int send_packets(void *arg) {
-    struct send_args *args = (struct send_args *)arg;
+    struct send_args *args = (struct send_args *)arg;   
     int sockfd = args->sockfd;
     struct sockaddr_in *saddr = args->saddr;
     struct sockaddr_in *daddr = args->daddr;
