@@ -1,14 +1,14 @@
 #include "headers/main.h"
 #include "headers/socket.h"
 
-#define MAX_KEY_LEN 100
-
+// Handles errors by printing the error, closing the socket, and then exiting
 void handle_error(int sockfd, char* error_msg) {
     perror(error_msg);
     close(sockfd);
     exit(EXIT_FAILURE);
 }
 
+// Writes a buffer into a file
 void write_contents_to_file(char* file_name, char* buffer, int len) {
     FILE* fp = fopen(file_name, "w");
     if (fp == NULL) {
@@ -29,6 +29,7 @@ void wait(unsigned int seconds) {
     usleep(seconds * 1000000);
 }
 
+// Reads a file into a buffer and returns the pointer
 char* read_file(char* file_path) {
     FILE* file = fopen(file_path, "rb");
     if (file == NULL) {
