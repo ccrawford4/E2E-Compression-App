@@ -325,6 +325,13 @@ int main(int argc, char **argv) {
     double time1 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
                 		udp_src_port, udp_dst_port, n_pckts, pckt_len, false, timeout);
 
+    // Probe server will return -1 if both RSTs are not found
+    if (time1 == -1) {
+     	printf("\nFailed to detect due to insufficent information\n");
+        return EXIT_SUCCESS;
+    }
+    
+
     // Wait to ensure that the packet streams don't interfere with each other
     // Can adjust this value by changing the 'measurement_time' field in the config
     wait(m_time);
@@ -332,12 +339,11 @@ int main(int argc, char **argv) {
      // Probe server with TCP head SYN, high entropy UDP, and then TCP tail SYN
     double time2 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
                 		udp_src_port, udp_dst_port, n_pckts, pckt_len, true, timeout);
-
-    // The probe_server() function will return -1 if the timeout occured
-    // If either of the probing phases could not find two RST packets then print the error
-    if (time1 == -1 || time2 == -1) {
-        printf("Failed to detect due to insufficent information\n");
-        return EXIT_FAILURE;
+    
+    // Time elapsed exceeded the RST timeout
+    if (time2 == -1) {
+        printf("\nFailed to detect due to insufficent information\n");
+	return EXIT_SUCCESS;
     }   
 
     // Compare the times to check if compression occcured and then print out the result
