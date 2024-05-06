@@ -22,7 +22,9 @@ struct send_args {
     struct sockaddr_in *saddr;     // Sender IP address configuration
     struct sockaddr_in *daddr;     // SYN destination address (includes Head SYN port)
     unsigned int tsyn_port;        // Tail SYN port
+    char *host_ip;		   // Host IP for UDP
     const char *server_ip;         // Server_IP for UDP
+    unsigned int udp_src_port;	   // Source port for UDP
     unsigned int udp_dst_port;     // Dest port for UDP
     int n_pckts;                   // Number of packets in stream
     int pckt_len;                  // Size of payload
@@ -32,15 +34,17 @@ struct send_args {
 
 // Fills a send args struct given some parameters
 void fill_sargs(struct send_args *sargs, int sockfd, struct sockaddr_in *saddr,
-               struct sockaddr_in *daddr, unsigned int tsyn_port, const char
-               *server_ip, unsigned int udp_dst_port, int n_pckts, int pckt_len,
-               bool h_entropy, int ttl) 
+               struct sockaddr_in *daddr, unsigned int tsyn_port, char *host_ip,
+	       const char *server_ip, unsigned int udp_src_port, unsigned int udp_dst_port, 
+	       int n_pckts, int pckt_len, bool h_entropy, int ttl) 
 {
     sargs->sockfd = sockfd;
     sargs->saddr = saddr;
     sargs->daddr = daddr;
     sargs->tsyn_port = tsyn_port;
+    sargs->host_ip = host_ip;
     sargs->server_ip = server_ip;
+    sargs->udp_src_port = udp_src_port;
     sargs->udp_dst_port = udp_dst_port;
     sargs->n_pckts = n_pckts;
     sargs->pckt_len = pckt_len;
@@ -88,7 +92,8 @@ void send_syn(int sockfd, struct sockaddr_in *saddr, struct sockaddr_in *daddr) 
 }
 
 // Handles the UDP phase by creating the socket and sending the datagram
-void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_entropy, int ttl)
+void udp_phase(char* src_ip, char *dst_ip, unsigned int src_port, unsigned int dst_port, 
+	     int n_pckts, int pckt_len, bool h_entropy, int ttl)
  {
 
      // Create a UDP socket
@@ -98,17 +103,25 @@ void udp_phase(const char *dst_ip, int port, int n_pckts, int pckt_len, bool h_e
       exit(EXIT_FAILURE);
      }
 
+     // Create and fill the Source IP address configuration
+     struct sockaddr_in saddr;
+     fill_ipstruct(&saddr, src_port, src_ip);
+     
+     // Bind the UDP socket to the source port     
+     if (bind(sockfd, (const struct sockaddr *)&saddr, sizeof(struct sockaddr_in)) < 0)
+	handle_error(sockfd, "bind()");
+
      // Set the TTL value for the UDP packets - should be provided by the config file
      if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
         handle_error(sockfd, "setsockopt()");
      }
 
      // Create and fill the Destination IP address configuration
-     struct sockaddr_in addr;
-     fill_ipstruct(&addr, port, (char*)dst_ip);
+     struct sockaddr_in daddr;
+     fill_ipstruct(&daddr, src_port, dst_ip);
 
      // Sends the UDP packet stream
-     send_udp_packets(sockfd, &addr, port, pckt_len, n_pckts, h_entropy);
+     send_udp_packets(sockfd, &daddr, dst_port, pckt_len, n_pckts, h_entropy);
 
      // Close the socket after use
      close(sockfd);
@@ -122,8 +135,10 @@ int send_packets(void *arg) {
     int sockfd = args->sockfd;                              
     struct sockaddr_in *saddr = args->saddr;                
     struct sockaddr_in *daddr = args->daddr;                
-    unsigned int tsyn_port = args->tsyn_port;               
-    const char *server_ip = args->server_ip;                
+    unsigned int tsyn_port = args->tsyn_port;
+    char *host_ip = args->host_ip;               
+    const char *server_ip = args->server_ip;
+    unsigned int udp_src_port = args->udp_src_port;                
     unsigned int udp_dst_port = args->udp_dst_port;         
     int n_pckts = args->n_pckts;                            
     int pckt_len = args->pckt_len;                          
@@ -134,7 +149,8 @@ int send_packets(void *arg) {
     send_syn(sockfd, saddr, daddr);
 
     // Send the UDP stream
-    udp_phase(server_ip, udp_dst_port, n_pckts, pckt_len, h_entropy, ttl);
+    udp_phase(host_ip, (char*)server_ip, udp_src_port, udp_dst_port, n_pckts, pckt_len, 
+	     h_entropy, ttl);
 
     // Set the destination port to the TAIL SYN port (it will be the HEAD by default so this is crucial)
     daddr->sin_port = htons(tsyn_port);
@@ -162,8 +178,9 @@ int recv_rst(void *arg) {
 
 // Probe phase responsible for setting up the threaded functions for sending and receiving data
 double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned int tsyn_port,
-                 char *hostip, const char *server_ip, int ttl, unsigned int udp_dst_port, 
-                 int n_pckts, int pckt_len, bool h_entropy, unsigned short timeout) 
+                 char *hostip, const char *server_ip, int ttl, unsigned int udp_src_port,
+		 unsigned int udp_dst_port, int n_pckts, int pckt_len, bool h_entropy, 
+		 unsigned short timeout) 
 {
     // Create a TCP socket
     int sockfd;
@@ -204,14 +221,14 @@ double probe_server(unsigned int tcp_src_port, unsigned int hsyn_port, unsigned 
         return EXIT_FAILURE;
     }
     
-    // Create the send struct for the thread 
+    // Create the send struct for the thread
     struct send_args *s_args = malloc(sizeof(struct send_args));
     if (s_args == NULL)
         handle_error(sockfd, "memory allocation error");
 
     // Fill the send args struct
-    fill_sargs(s_args, sockfd, &saddr, &h_daddr, tsyn_port, server_ip,
-              udp_dst_port, n_pckts, pckt_len, h_entropy, ttl);
+    fill_sargs(s_args, sockfd, &saddr, &h_daddr, tsyn_port, hostip, server_ip,
+              udp_src_port, udp_dst_port, n_pckts, pckt_len, h_entropy, ttl);
 
    // Start the second thread to start sending TCP/UDP packets
    thrd_t t1;
@@ -306,7 +323,7 @@ int main(int argc, char **argv) {
  
     // Probe server with TCP head SYN, low Entropy UDP, and then TCP tail SYN
     double time1 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
-                udp_dst_port, n_pckts, pckt_len, false, timeout);
+                		udp_src_port, udp_dst_port, n_pckts, pckt_len, false, timeout);
 
     // Wait to ensure that the packet streams don't interfere with each other
     // Can adjust this value by changing the 'measurement_time' field in the config
@@ -314,7 +331,7 @@ int main(int argc, char **argv) {
 
      // Probe server with TCP head SYN, high entropy UDP, and then TCP tail SYN
     double time2 = probe_server(tcp_src_port, hsyn_port, tsyn_port, hostip, server_ip, ttl,
-                udp_dst_port, n_pckts, pckt_len, true, timeout);
+                		udp_src_port, udp_dst_port, n_pckts, pckt_len, true, timeout);
 
     // The probe_server() function will return -1 if the timeout occured
     // If either of the probing phases could not find two RST packets then print the error
