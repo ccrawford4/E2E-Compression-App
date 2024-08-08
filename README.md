@@ -10,7 +10,7 @@ The standalone application sends TCP SYN packets to a server on closed ports and
 2. Client will send a stream of low entropy UDP packets to the server
 3. Client will send a tail TCP SYN packet to the server
 4. The client will be listening as it sends the data (using multithreading) and will stop once it receives both RST packets
-5. The client will compare the times of when the RST packets were received in order to calcualte the overall stream time.
+5. The client will compare the times of when the RST packets were received in order to calculate the overall stream time.
 6. The client will then repeat steps 1-5 but this time with high entropy data in each UDP packet sent in the stream for step three.
 7. The client will compare the low entropy versus high entropy data and if the stream times differ more than 1 millisecond or 0.100 seconds then the client will print out that compression has been detected. Otherwise no compression can be concluded and the client will print this out.
 ##### Note
