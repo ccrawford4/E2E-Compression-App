@@ -2,7 +2,7 @@
 Follow these steps to set up and run the standalone application capable of detecting compression over a network
 ## Overview
 ### Objective
-The goal of this project is to create a multithreaded application capable of detecting end to end compression over a network. Knowledge of compression is helpful in identifying potential security vulnerabilites. This is due to the fact that if compression is detected over a network its likely the data being transmitted is not encrypted. This is helpful both for attackers but also members of the internet who want to keep their data safe.
+The goal of this project is to create a multithreaded application capable of detecting end to end compression over a network. Knowledge of compression is helpful in identifying potential security vulnerabilites.
 ### How It Works
 The standalone application sends TCP SYN packets to a server on closed ports and listens for RST packets to be sent back. The client can use this information to check if the time it takes for high entropy data to reach a server differs from low entropy data. 
 #### Steps
